@@ -153,9 +153,12 @@ const Products = () => {
                       alt={product.name}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center gap-2">
                       <button className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300">
                         Xem chi tiết
+                      </button>
+                      <button className="bg-purple-600 text-white px-6 py-2 rounded-full hover:bg-purple-700 transition duration-300">
+                        Mua ngay
                       </button>
                     </div>
                   </div>
@@ -163,7 +166,7 @@ const Products = () => {
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">
                       {product.name}
                     </h3>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mb-3">
                       <span className="text-purple-600 font-bold">
                         {product.price.toLocaleString()}đ
                       </span>
@@ -173,6 +176,9 @@ const Products = () => {
                         </svg>
                       </button>
                     </div>
+                    <button className="w-full bg-gray-100 text-gray-800 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition duration-300">
+                      Thêm vào giỏ hàng
+                    </button>
                   </div>
                 </div>
               ))}

@@ -1,7 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
 
 const Navbar = () => {
+  const { cart } = useCart();
+  
+  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+
   return (
     <nav className="bg-white shadow-lg">
       <div className="container mx-auto px-4">
@@ -54,7 +59,7 @@ const Navbar = () => {
                 <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
             </button>
-            <button className="text-gray-600 hover:text-gray-900">
+            <Link to="/cart" className="text-gray-600 hover:text-gray-900 relative">
               <svg
                 className="h-6 w-6"
                 fill="none"
@@ -66,7 +71,12 @@ const Navbar = () => {
               >
                 <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
               </svg>
-            </button>
+              {totalItems > 0 && (
+                <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
             <button className="text-gray-600 hover:text-gray-900">
               <svg
                 className="h-6 w-6"

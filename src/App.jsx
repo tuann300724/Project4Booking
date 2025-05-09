@@ -14,6 +14,10 @@ import AdminProducts from "./pages/admin/AdminProducts";
 import ProductForm from "./pages/admin/ProductForm";
 import Users from './pages/admin/Users';
 import Revenue from './pages/admin/Revenue';
+import { CartProvider } from './context/CartContext';
+import Card from './pages/Card';
+import Checkout from './pages/Checkout';
+import OrderSuccess from './pages/OrderSuccess';
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -21,30 +25,37 @@ import Revenue from './pages/admin/Revenue';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Routes cho trang chủ */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
-          <Route path="products" element={<Products />} />
-          <Route path="products/:id" element={<ProductDetail />} />
-          <Route path="about" element={<About />} />
-          <Route path="contact" element={<Contact />} />
-        </Route>
+    <CartProvider>
+      <Router>
+        <Routes>
+          {/* Routes cho trang chủ */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Home />} />
+            <Route path="products" element={<Products />} />
+            <Route path="products/:id" element={<ProductDetail />} />
+            <Route path="about" element={<About />} />
+            <Route path="contact" element={<Contact />} />
+            <Route path="cart" element={<Card />} />
+          <Route path="checkout" element={<Checkout />} />
+          <Route path="order-success" element={<OrderSuccess />} />
+          </Route>
 
-        {/* Routes cho trang admin */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="orders/:id" element={<OrderDetail />} />
-          <Route path="products" element={<AdminProducts />} />
-          <Route path="products/new" element={<ProductForm />} />
-          <Route path="products/:id/edit" element={<ProductForm />} />
-          <Route path="users" element={<Users />} />
-          <Route path="revenue" element={<Revenue />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* Routes cho trang admin */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="orders/:id" element={<OrderDetail />} />
+            <Route path="products" element={<AdminProducts />} />
+            <Route path="products/new" element={<ProductForm />} />
+            <Route path="products/:id/edit" element={<ProductForm />} />
+            <Route path="users" element={<Users />} />
+            <Route path="revenue" element={<Revenue />} />
+          </Route>
+
+          
+        </Routes>
+      </Router>
+    </CartProvider>
   );
 }
 

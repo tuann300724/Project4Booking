@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllProducts } from '../api/productService';
+import { getAllProducts, getAllSizes } from '../api/productService';
 
 const Products = () => {
-  // State cho products và loading
   const [products, setProducts] = useState([]);
+  const [sizes, setSizes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -15,27 +15,33 @@ const Products = () => {
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
 
-  // Fetch products
+  // Fetch products and sizes
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getAllProducts();
-        setProducts(data);
+        const [productsData, sizesData] = await Promise.all([
+          getAllProducts(),
+          getAllSizes()
+        ]);
+        setProducts(productsData);
+        setSizes(sizesData);
         setLoading(false);
       } catch (err) {
-        setError('Failed to load products');
+        setError('Failed to load data');
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchData();
   }, []);
 
   // Filter products based on selected filters
   const filteredProducts = products.filter(product => {
-    const matchesCategory = !selectedCategory || product.category.name === selectedCategory;
+    const matchesCategory = !selectedCategory || (product.category && product.category.name === selectedCategory);
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-    return matchesCategory && matchesPrice;
+    const matchesSize = selectedSizes.length === 0 || 
+      product.productSizes?.some(ps => selectedSizes.includes(ps.id.sizeId.toString()));
+    return matchesCategory && matchesPrice && matchesSize;
   });
 
   // Sort products
@@ -78,7 +84,10 @@ const Products = () => {
             <div className="mb-6">
               <h3 className="font-medium mb-3">Danh mục</h3>
               <div className="space-y-2">
-                {Array.from(new Set(products.map(p => p.category.name))).map((category) => (
+                {Array.from(new Set(products
+                  .filter(p => p.category)
+                  .map(p => p.category.name)
+                )).map((category) => (
                   <div key={category}>
                     <button
                       onClick={() => setSelectedCategory(category)}
@@ -119,23 +128,23 @@ const Products = () => {
             <div className="mb-6">
               <h3 className="font-medium mb-3">Kích thước</h3>
               <div className="flex flex-wrap gap-2">
-                {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
+                {sizes.map((size) => (
                   <button
-                    key={size}
+                    key={size.id}
                     onClick={() => {
                       setSelectedSizes(prev =>
-                        prev.includes(size)
-                          ? prev.filter(s => s !== size)
-                          : [...prev, size]
+                        prev.includes(size.id.toString())
+                          ? prev.filter(s => s !== size.id.toString())
+                          : [...prev, size.id.toString()]
                       );
                     }}
                     className={`px-3 py-1 border rounded-lg ${
-                      selectedSizes.includes(size)
+                      selectedSizes.includes(size.id.toString())
                         ? 'bg-purple-600 text-white border-purple-600'
                         : 'hover:bg-gray-100'
                     }`}
                   >
-                    {size}
+                    {size.name}
                   </button>
                 ))}
               </div>
@@ -171,39 +180,53 @@ const Products = () => {
                 >
                   <div className="relative h-48">
                     <img
-                      src={`http://localhost:8080${product.productImages[0]?.imageUrl}` || 'https://placehold.co/400x500?text=No+Image'}
+                      src={product.productImages && product.productImages.length > 0 
+                        ? `http://localhost:8080${product.productImages[0].imageUrl}`
+                        : 'https://placehold.co/400x500?text=No+Image'}
                       alt={product.name}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
                     />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center gap-2">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
                       <Link
                         to={`/products/${product.id}`}
                         className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300"
                       >
                         Xem chi tiết
                       </Link>
-                      <button className="bg-purple-600 text-white px-6 py-2 rounded-full hover:bg-purple-700 transition duration-300">
-                        Mua ngay
-                      </button>
                     </div>
                   </div>
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">
                       {product.name}
                     </h3>
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-purple-600 font-bold">
-                        {product.price.toLocaleString()}đ
-                      </span>
-                      <button className="text-gray-600 hover:text-purple-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-purple-600 font-bold">
+                          {product.price.toLocaleString()}đ
+                        </span>
+                        <button className="text-gray-600 hover:text-purple-600">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {product.productSizes
+                          .filter(sizeInfo => sizeInfo.stock > 0)
+                          .map(sizeInfo => (
+                            <span
+                              key={sizeInfo.id.sizeId}
+                              className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full"
+                            >
+                              {sizeInfo.id.sizeId === 1 ? 'S' :
+                               sizeInfo.id.sizeId === 2 ? 'M' :
+                               sizeInfo.id.sizeId === 3 ? 'L' :
+                               sizeInfo.id.sizeId === 4 ? 'XL' :
+                               sizeInfo.id.sizeId === 5 ? 'XXL' : sizeInfo.id.sizeId}
+                            </span>
+                          ))}
+                      </div>
                     </div>
-                    <button className="w-full bg-gray-100 text-gray-800 py-2 rounded-lg hover:bg-purple-600 hover:text-white transition duration-300">
-                      Thêm vào giỏ hàng
-                    </button>
                   </div>
                 </div>
               ))}

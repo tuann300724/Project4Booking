@@ -30,4 +30,25 @@ export const getProductById = async (productId) => {
         console.error('Error fetching product details:', error);
         throw error;
     }
+};
+
+// Fetch all sizes
+export const getAllSizes = async () => {
+    try {
+        const response = await api.get('/sizes');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching sizes:', error);
+        throw error;
+    }
+};
+
+export const getRelatedProducts = async (categoryId, currentProductId) => {
+    try {
+        const response = await api.get(`/products/related/${categoryId}`);
+        return response.data.filter(product => product.id !== currentProductId).slice(0, 4);
+    } catch (error) {
+        console.error('Error fetching related products:', error);
+        return [];
+    }
 }; 

@@ -1,26 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { getAllProducts } from '../api/productService';
 
 const Products = () => {
-  // Mock data cho categories
-  const categories = [
-    { id: 1, name: 'Áo', subcategories: ['Áo thun', 'Áo sơ mi', 'Áo khoác'] },
-    { id: 2, name: 'Quần', subcategories: ['Quần jean', 'Quần kaki', 'Quần short'] },
-    { id: 3, name: 'Phụ kiện', subcategories: ['Túi xách', 'Giày dép', 'Mũ nón'] },
-  ];
-
-  // Mock data cho products
-  const products = [
-    {
-      id: 1,
-      name: 'Áo thun basic',
-      price: 250000,
-      image: 'https://placehold.co/400x500?text=Ao+Thun',
-      category: 'Áo',
-      subcategory: 'Áo thun',
-      sizes: ['S', 'M', 'L', 'XL'],
-    },
-    // Thêm các sản phẩm khác tương tự
-  ];
+  // State cho products và loading
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // State cho filters
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -28,6 +14,57 @@ const Products = () => {
   const [priceRange, setPriceRange] = useState([0, 1000000]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
+
+  // Fetch products
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await getAllProducts();
+        setProducts(data);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to load products');
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Filter products based on selected filters
+  const filteredProducts = products.filter(product => {
+    const matchesCategory = !selectedCategory || product.category.name === selectedCategory;
+    const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
+    return matchesCategory && matchesPrice;
+  });
+
+  // Sort products
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'price-asc':
+        return a.price - b.price;
+      case 'price-desc':
+        return b.price - a.price;
+      default:
+        return 0;
+    }
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -41,35 +78,18 @@ const Products = () => {
             <div className="mb-6">
               <h3 className="font-medium mb-3">Danh mục</h3>
               <div className="space-y-2">
-                {categories.map((category) => (
-                  <div key={category.id}>
+                {Array.from(new Set(products.map(p => p.category.name))).map((category) => (
+                  <div key={category}>
                     <button
-                      onClick={() => setSelectedCategory(category.name)}
+                      onClick={() => setSelectedCategory(category)}
                       className={`w-full text-left px-3 py-2 rounded-lg ${
-                        selectedCategory === category.name
+                        selectedCategory === category
                           ? 'bg-purple-100 text-purple-600'
                           : 'hover:bg-gray-100'
                       }`}
                     >
-                      {category.name}
+                      {category}
                     </button>
-                    {selectedCategory === category.name && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        {category.subcategories.map((sub) => (
-                          <button
-                            key={sub}
-                            onClick={() => setSelectedSubcategory(sub)}
-                            className={`block w-full text-left px-3 py-1 rounded-lg text-sm ${
-                              selectedSubcategory === sub
-                                ? 'bg-purple-50 text-purple-600'
-                                : 'hover:bg-gray-50'
-                            }`}
-                          >
-                            {sub}
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -127,7 +147,9 @@ const Products = () => {
             {/* Sort Options */}
             <div className="bg-white rounded-lg shadow-md p-4 mb-6">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Hiển thị 1-12 của 36 sản phẩm</span>
+                <span className="text-gray-600">
+                  Hiển thị {sortedProducts.length} sản phẩm
+                </span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -142,21 +164,24 @@ const Products = () => {
 
             {/* Products Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
+              {sortedProducts.map((product) => (
                 <div
                   key={product.id}
                   className="bg-white rounded-lg shadow-md overflow-hidden group"
                 >
                   <div className="relative h-48">
                     <img
-                      src={product.image}
+                      src={`http://localhost:8080${product.productImages[0]?.imageUrl}` || 'https://placehold.co/400x500?text=No+Image'}
                       alt={product.name}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
                     />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex flex-col items-center justify-center gap-2">
-                      <button className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300">
+                      <Link
+                        to={`/products/${product.id}`}
+                        className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300"
+                      >
                         Xem chi tiết
-                      </button>
+                      </Link>
                       <button className="bg-purple-600 text-white px-6 py-2 rounded-full hover:bg-purple-700 transition duration-300">
                         Mua ngay
                       </button>
@@ -182,30 +207,6 @@ const Products = () => {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Pagination */}
-            <div className="mt-8 flex justify-center">
-              <nav className="flex items-center space-x-2">
-                <button className="px-3 py-1 rounded-lg border hover:bg-gray-100">
-                  Previous
-                </button>
-                {[1, 2, 3, 4, 5].map((page) => (
-                  <button
-                    key={page}
-                    className={`px-3 py-1 rounded-lg border ${
-                      page === 1
-                        ? 'bg-purple-600 text-white border-purple-600'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button className="px-3 py-1 rounded-lg border hover:bg-gray-100">
-                  Next
-                </button>
-              </nav>
             </div>
           </div>
         </div>

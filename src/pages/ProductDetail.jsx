@@ -1,33 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { getProductById } from '../api/productService';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data cho sản phẩm
-  const product = {
-    id: 1,
-    name: 'Áo thun basic',
-    price: 250000,
-    description: 'Áo thun basic với chất liệu cotton 100%, thoáng mát và thoải mái. Thiết kế đơn giản, dễ phối đồ và phù hợp cho mọi dịp.',
-    images: [
-      'https://placehold.co/600x800?text=Ao+Thun+1',
-      'https://placehold.co/600x800?text=Ao+Thun+2',
-      'https://placehold.co/600x800?text=Ao+Thun+3',
-      'https://placehold.co/600x800?text=Ao+Thun+4',
-    ],
-    sizes: ['S', 'M', 'L', 'XL'],
-    details: [
-      'Chất liệu: Cotton 100%',
-      'Kiểu dáng: Regular fit',
-      'Cổ áo: Cổ tròn',
-      'Chiều dài: 65cm',
-      'Chiều rộng vai: 45cm',
-      'Chiều dài tay: 20cm',
-    ],
-  };
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const data = await getProductById(id);
+        setProduct(data);
+        setLoading(false);
+      } catch (err) {
+        setError('Failed to load product details');
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
 
   const handleQuantityChange = (value) => {
     if (value >= 1) {
@@ -48,6 +44,30 @@ const ProductDetail = () => {
     });
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-red-600">{error}</div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Product not found</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="container mx-auto px-4">
@@ -57,24 +77,10 @@ const ProductDetail = () => {
             <div className="space-y-4">
               <div className="aspect-w-3 aspect-h-4 rounded-lg overflow-hidden h-[400px]">
                 <img
-                  src={product.images[0]}
+                  src={`http://localhost:8080${product.productImages[0]?.imageUrl}` || 'https://placehold.co/600x800?text=No+Image'}
                   alt={product.name}
                   className="w-full h-full object-cover object-center"
                 />
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                {product.images.map((image, index) => (
-                  <div
-                    key={index}
-                    className="aspect-w-1 aspect-h-1 rounded-lg overflow-hidden h-24 cursor-pointer hover:opacity-75"
-                  >
-                    <img
-                      src={image}
-                      alt={`${product.name} ${index + 1}`}
-                      className="w-full h-full object-cover object-center"
-                    />
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -98,7 +104,7 @@ const ProductDetail = () => {
               <div>
                 <h2 className="text-lg font-semibold mb-4">Kích thước</h2>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((size) => (
+                  {['S', 'M', 'L', 'XL'].map((size) => (
                     <button
                       key={size}
                       onClick={() => setSelectedSize(size)}
@@ -150,13 +156,10 @@ const ProductDetail = () => {
 
               {/* Product Details */}
               <div>
-                <h2 className="text-lg font-semibold mb-4">Chi tiết sản phẩm</h2>
+                <h2 className="text-lg font-semibold mb-4">Thông tin sản phẩm</h2>
                 <ul className="space-y-2">
-                  {product.details.map((detail, index) => (
-                    <li key={index} className="text-gray-600">
-                      {detail}
-                    </li>
-                  ))}
+                  <li className="text-gray-600">Danh mục: {product.category.name}</li>
+                  <li className="text-gray-600">Số lượng trong kho: {product.stock}</li>
                 </ul>
               </div>
             </div>

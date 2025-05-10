@@ -27,7 +27,7 @@ const Products = () => {
         setSizes(sizesData);
         setLoading(false);
       } catch (err) {
-        setError('Failed to load data');
+        setError('Đã có lỗi xin vui lòng thử lại');
         setLoading(false);
       }
     };

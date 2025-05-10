@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getProductById, getRelatedProducts } from '../api/productService';
+import { getProductById, getRelatedProducts, validateDiscountCode } from '../api/productService';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,6 +12,9 @@ const ProductDetail = () => {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [discountCode, setDiscountCode] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
@@ -41,6 +44,32 @@ const ProductDetail = () => {
     }
   };
 
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      setDiscountError('Vui lòng nhập mã giảm giá');
+      return;
+    }
+
+    try {
+      const discount = await validateDiscountCode(discountCode);
+      setAppliedDiscount(discount);
+      setDiscountError('');
+    } catch (err) {
+      setDiscountError(err.response.data.message);
+      setAppliedDiscount(null);
+    }
+  };
+
+  const calculateDiscountedPrice = () => {
+    if (!product || !appliedDiscount) return product.price;
+
+    if (appliedDiscount.discount_type === 'percentage') {
+      return product.price * (1 - appliedDiscount.discount_value / 100);
+    } else {
+      return Math.max(0, product.price - appliedDiscount.discount_value);
+    }
+  };
+
   const handleAddToCart = () => {
     if (!selectedSize) {
       alert('Vui lòng chọn kích thước');
@@ -50,10 +79,11 @@ const ProductDetail = () => {
     const productToAdd = {
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: appliedDiscount ? calculateDiscountedPrice() : product.price,
       image: `http://localhost:8080${product.productImages[0]?.imageUrl}`,
       size: selectedSize,
-      quantity: quantity
+      quantity: quantity,
+      discountCode: appliedDiscount?.code
     };
 
     addToCart(productToAdd);
@@ -105,7 +135,7 @@ const ProductDetail = () => {
             <div className="space-y-4">
               <div className="aspect-w-3 aspect-h-4 rounded-lg overflow-hidden h-[400px]">
                 <img
-                  src={`http://localhost:8080${product.productImages[0]?.imageUrl}` || 'https://placehold.co/600x800?text=No+Image'}
+                  src={ product.productImages[0]?.imageUrl != undefined ? `http://localhost:8080${product.productImages[0]?.imageUrl}` : 'https://placehold.co/600x800?text=No+Image'}
                   alt={product.name}
                   className="w-full h-full object-cover object-center"
                 />
@@ -182,6 +212,61 @@ const ProductDetail = () => {
                   >
                     +
                   </button>
+                </div>
+              </div>
+
+              {/* Discount Code */}
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-4">Mã giảm giá</h2>
+                {product.discount ? (
+                  <>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                        placeholder="Nhập mã giảm giá"
+                        className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleApplyDiscount}
+                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                    {discountError && (
+                      <p className="mt-2 text-red-600 text-sm">{discountError}</p>
+                    )}
+                    {appliedDiscount && (
+                      <p className="mt-2 text-green-600 text-sm">
+                        Đã áp dụng mã giảm giá: {appliedDiscount.code}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-gray-500 text-sm">Sản phẩm này không áp dụng mã giảm giá</p>
+                )}
+              </div>
+
+              {/* Price Display */}
+              <div>
+                <h2 className="text-lg font-semibold mb-2">Giá</h2>
+                <div className="flex items-center space-x-2">
+                  {appliedDiscount ? (
+                    <>
+                      <span className="text-gray-500 line-through">
+                        {product.price.toLocaleString()}đ
+                      </span>
+                      <span className="text-2xl font-bold text-purple-600">
+                        {calculateDiscountedPrice().toLocaleString()}đ
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-2xl font-bold text-purple-600">
+                      {product.price.toLocaleString()}đ
+                    </span>
+                  )}
                 </div>
               </div>
 

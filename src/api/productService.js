@@ -51,4 +51,16 @@ export const getRelatedProducts = async (categoryId, currentProductId) => {
         console.error('Error fetching related products:', error);
         return [];
     }
+};
+
+// Validate and apply discount code
+export const validateDiscountCode = async (code) => {
+    try {
+        const response = await api.get(`/discounts/validate/${code}`);
+        console.log("AA", response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error validating discount code:', error);
+        throw error;
+    }
 }; 

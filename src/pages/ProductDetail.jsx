@@ -95,9 +95,8 @@ const ProductDetail = () => {
     const sizeMap = {
       1: 'S',
       2: 'M',
-      3: 'L',
+      3: 'X',
       4: 'XL',
-      5: 'XXL'
     };
     return sizeMap[sizeId] || sizeId;
   };

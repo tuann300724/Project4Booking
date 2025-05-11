@@ -3,7 +3,7 @@ import Modal from './Modal';
 
 const prizes = [
   { label: 'Giảm 10%', color: '#ff6b6b', code: 'SPIN10', value: '10%' },
-  { label: 'Freeship', color: '#4ecdc4', code: 'FREESHIP', value: 'Miễn phí vận chuyển' },
+  { label: 'Giảm 5%', color: '#4ecdc4', code: 'SPIN5', value: '5%' },
   { label: 'Giảm 50K', color: '#ff9f43', code: 'SPIN50K', value: '50.000đ' },
   { label: 'Chúc bạn may mắn lần sau', color: '#bbb', code: null, value: null },
   { label: 'Giảm 20%', color: '#e056fd', code: 'SPIN20', value: '20%' },

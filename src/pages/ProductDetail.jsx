@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getProductById, getRelatedProducts, validateDiscountCode } from '../api/productService';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -15,7 +16,9 @@ const ProductDetail = () => {
   const [discountCode, setDiscountCode] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [isUserVoucher, setIsUserVoucher] = useState(false);
   const { addToCart } = useCart();
+  const { user } = useUser();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,22 +54,53 @@ const ProductDetail = () => {
     }
 
     try {
+      // First try product discount
       const discount = await validateDiscountCode(discountCode);
       setAppliedDiscount(discount);
+      setIsUserVoucher(false);
       setDiscountError('');
     } catch (err) {
-      setDiscountError(err.response.data.message);
-      setAppliedDiscount(null);
+      // If product discount fails, try user voucher
+      if (user?.id) {
+        try {
+          const response = await fetch(`http://localhost:8080/api/vouchers/use?userId=${user.id}&code=${discountCode}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const voucher = await response.json();
+            setAppliedDiscount(voucher);
+            setIsUserVoucher(true);
+            setDiscountError('');
+          } else {
+            const errorData = await response.text();
+            setDiscountError(errorData);
+            setAppliedDiscount(null);
+          }
+        } catch (voucherErr) {
+          setDiscountError('Không thể kiểm tra mã giảm giá. Vui lòng thử lại.');
+          setAppliedDiscount(null);
+        }
+      } else {
+        setDiscountError('Bạn cần đăng nhập để sử dụng mã giảm giá cá nhân');
+        setAppliedDiscount(null);
+      }
     }
   };
 
   const calculateDiscountedPrice = () => {
     if (!product || !appliedDiscount) return product.price;
 
-    if (appliedDiscount.discount_type === 'percentage') {
-      return product.price * (1 - appliedDiscount.discount_value / 100);
+    const discountType = appliedDiscount.discount_type || appliedDiscount.discountType;
+    const discountValue = appliedDiscount.discount_value || appliedDiscount.discountValue;
+
+    if (discountType === 'percentage') {
+      return product.price * (1 - discountValue / 100);
     } else {
-      return Math.max(0, product.price - appliedDiscount.discount_value);
+      return Math.max(0, product.price - discountValue);
     }
   };
 
@@ -83,7 +117,9 @@ const ProductDetail = () => {
       image: `http://localhost:8080${product.productImages[0]?.imageUrl}`,
       size: selectedSize,
       quantity: quantity,
-      discountCode: appliedDiscount?.code
+      discountCode: appliedDiscount?.code,
+      isUserVoucher: isUserVoucher,
+      userId: isUserVoucher ? user?.id : null
     };
 
     addToCart(productToAdd);
@@ -239,7 +275,7 @@ const ProductDetail = () => {
                     )}
                     {appliedDiscount && (
                       <p className="mt-2 text-green-600 text-sm">
-                        Đã áp dụng mã giảm giá: {appliedDiscount.code}
+                        Đã áp dụng {isUserVoucher ? 'voucher' : 'mã giảm giá'}: {appliedDiscount.code}
                       </p>
                     )}
                   </>

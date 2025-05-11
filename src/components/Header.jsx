@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import AuthModal from './AuthModal';
+import PromoWheel from './PromoWheel';
 
 const Header = () => {
   const { 
@@ -15,6 +16,7 @@ const Header = () => {
     closeAuthModal 
   } = useUser();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isPromoWheelOpen, setIsPromoWheelOpen] = useState(false);
 
   // Debug - check login status
   useEffect(() => {
@@ -24,6 +26,11 @@ const Header = () => {
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
   const closeDropdown = () => setIsDropdownOpen(false);
+
+  const openPromoWheel = () => {
+    setIsPromoWheelOpen(true);
+    closeDropdown();
+  };
 
   return (
     <>
@@ -103,20 +110,26 @@ const Header = () => {
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                      <Link
+                      {/* <Link
                         to="/profile"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                         onClick={closeDropdown}
                       >
                         Tài khoản
-                      </Link>
+                      </Link> */}
                       <Link
-                        to="/orders"
+                        to="/user/orders"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                         onClick={closeDropdown}
                       >
-                        Đơn hàng
+                        Đơn hàng của tôi
                       </Link>
+                      <button
+                        onClick={openPromoWheel}
+                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      >
+                        Khuyến mãi
+                      </button>
                       {/* Admin link if user has admin role */}
                       {user.role === 1 && (
                         <Link
@@ -165,6 +178,12 @@ const Header = () => {
         isOpen={isAuthModalOpen}
         onClose={closeAuthModal}
         initialMode={authMode}
+      />
+
+      {/* Promo Wheel */}
+      <PromoWheel
+        isOpen={isPromoWheelOpen}
+        onClose={() => setIsPromoWheelOpen(false)}
       />
     </>
   );

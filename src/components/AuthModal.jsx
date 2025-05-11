@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import Modal from './Modal';
+import { useUser } from '../context/UserContext';
 
 const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   const [isLoginMode, setIsLoginMode] = useState(initialMode === 'login');
@@ -10,6 +11,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { setUser } = useUser();
 
   const resetForm = () => {
     setUsername('');
@@ -32,15 +34,14 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       const response = await axios.post('http://localhost:8080/api/users/login', { email, password });
       console.log('Login successful:', response.data);
       
-      // Store user info in localStorage or context
+      // Store user info in localStorage AND update context
       localStorage.setItem('user', JSON.stringify(response.data));
+      setUser(response.data);
       
       setSuccessMsg('Đăng nhập thành công!');
       setTimeout(() => {
         onClose();
-        // Reload page to update header with user info
-        window.location.reload();
-      }, 1500);
+      }, 1000);
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data || 'Đăng nhập thất bại. Vui lòng thử lại.');
@@ -102,33 +103,33 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
       )}
 
       <form onSubmit={isLoginMode ? handleLogin : handleRegister}>
+        {!isLoginMode && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tên đăng nhập
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+              required
+            />
+          </div>
+        )}
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Tên đăng nhập
+            Email
           </label>
           <input
-            type="text"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
             required
           />
         </div>
-
-        {!isLoginMode && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-              required
-            />
-          </div>
-        )}
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">

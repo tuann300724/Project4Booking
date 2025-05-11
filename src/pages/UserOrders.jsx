@@ -12,16 +12,30 @@ const UserOrders = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      // Kiểm tra nếu user chưa đăng nhập
-      if (!user || !user.id) {
+      // First check user from context
+      let currentUser = user;
+      
+      // If not in context, try localStorage directly as backup
+      if (!currentUser || !currentUser.id) {
+        try {
+          const savedUser = localStorage.getItem('user');
+          if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+          }
+        } catch (err) {
+          console.error('Error parsing user from localStorage:', err);
+        }
+      }
+      
+      // If still no user, show login prompt
+      if (!currentUser || !currentUser.id) {
         setError('Bạn cần đăng nhập để xem đơn hàng');
         setLoading(false);
         return;
       }
       
       try {
-        // Replace with actual API call once it's available
-        const response = await axios.get(`http://localhost:8080/api/orders/user/${user.id}`);
+        const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`);
         setOrders(response.data);
         setLoading(false);
       } catch (err) {
@@ -52,6 +66,19 @@ const UserOrders = () => {
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
+
+  // Format date from ISO string to readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   if (loading) {
@@ -137,7 +164,7 @@ const UserOrders = () => {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h2 className="text-lg font-medium text-gray-900">Đơn hàng #{order.id}</h2>
-                        <p className="text-sm text-gray-600 mt-1">Ngày đặt: {order.date}</p>
+                        <p className="text-sm text-gray-600 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
                       </div>
                       <div>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusInfo(order.status).color}`}>
@@ -148,25 +175,33 @@ const UserOrders = () => {
                     
                     <div className="border-t border-gray-200 pt-4">
                       <div className="space-y-2">
-                        {order.items.slice(0, 2).map((item) => (
-                          <div key={item.id} className="flex justify-between text-sm">
-                            <div className="flex">
-                              <span className="font-medium">{item.quantity}x</span>
-                              <span className="ml-2 text-gray-700">{item.name}</span>
-                            </div>
-                            <span className="text-gray-800 font-medium">{formatCurrency(item.price * item.quantity)}</span>
-                          </div>
-                        ))}
-                        {order.items.length > 2 && (
+                        {order.orderItems && order.orderItems.length > 0 ? (
+                          <>
+                            {order.orderItems.slice(0, 2).map((item) => (
+                              <div key={item.id} className="flex justify-between text-sm">
+                                <div className="flex">
+                                  <span className="font-medium">{item.quantity}x</span>
+                                  <span className="ml-2 text-gray-700">Sản phẩm #{item.productId}</span>
+                                </div>
+                                <span className="text-gray-800 font-medium">{formatCurrency(item.price * item.quantity)}</span>
+                              </div>
+                            ))}
+                            {order.orderItems.length > 2 && (
+                              <div className="text-sm text-gray-600">
+                                +{order.orderItems.length - 2} sản phẩm khác
+                              </div>
+                            )}
+                          </>
+                        ) : (
                           <div className="text-sm text-gray-600">
-                            +{order.items.length - 2} sản phẩm khác
+                            Không có thông tin sản phẩm
                           </div>
                         )}
                       </div>
                       
                       <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
                         <div className="text-gray-900 font-medium">Tổng cộng:</div>
-                        <div className="text-xl font-bold text-purple-600">{formatCurrency(order.totalAmount)}</div>
+                        <div className="text-xl font-bold text-purple-600">{formatCurrency(order.total)}</div>
                       </div>
                     </div>
                   </div>
@@ -185,7 +220,7 @@ const UserOrders = () => {
                       </button>
                     )}
                     
-                    {order.status === 'pending' && (
+                    {(order.status === 'pending' || order.status === 'Chưa thanh toán') && (
                       <button className="text-red-600 hover:text-red-800 transition-colors">
                         Hủy đơn hàng
                       </button>

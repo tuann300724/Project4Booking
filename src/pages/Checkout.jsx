@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
+import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { getAllSizes } from '../api/productService';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
+  const { user } = useUser();
   const navigate = useNavigate();
   const [sizes, setSizes] = useState([]);
   const [formData, setFormData] = useState({
@@ -55,8 +57,22 @@ const Checkout = () => {
       };
     });
 
+    // Get user ID from context or localStorage
+    let userId = user?.id;
+    if (!userId) {
+      try {
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          userId = parsedUser.id;
+        }
+      } catch (error) {
+        console.error('Error parsing user from localStorage:', error);
+      }
+    }
+
     const orderData = {
-      userId: 1, // Nếu có user đăng nhập thì lấy userId động
+      userId: userId || 1, // Use user ID if available, otherwise fallback to 1
       total: calculateTotal(),
       status: 'Chưa thanh toán',
       paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Đã thanh toán',

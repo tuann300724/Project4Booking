@@ -13,7 +13,7 @@ import Dashboard from './pages/admin/Dashboard';
 import Orders from './pages/admin/Orders';
 import OrderDetail from './pages/admin/OrderDetail';
 import AdminProducts from "./pages/admin/AdminProducts";
-import ProductForm from "./pages/admin/ProductForm";
+
 import Users from './pages/admin/Users';
 import Revenue from './pages/admin/Revenue';
 import Card from './pages/Card';
@@ -21,6 +21,8 @@ import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import OrderList from "./pages/OrderList";
 import OrderDetailUser from "./pages/OrderDetailUser";
+import EditProduct from "./pages/admin/EditProduct";
+import ProductForm from "./pages/admin/ProductForm";
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -53,7 +55,7 @@ function App() {
               <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="products/new" element={<ProductForm />} />
-              <Route path="products/:id/edit" element={<ProductForm />} />
+              <Route path="products/edit/:id" element={<EditProduct />} />
               <Route path="users" element={<Users />} />
               <Route path="revenue" element={<Revenue />} />
             </Route>

@@ -41,6 +41,7 @@ function App() {
               <Route path="contact" element={<Contact />} />
               <Route path="cart" element={<Card />} />
               <Route path="checkout" element={<Checkout />} />
+              {/* <Route path="orderslist" element={<OrderList />} /> */}
               <Route path="order-success" element={<OrderSuccess />} />
               <Route path="user/orders" element={<UserOrders />} />
               <Route path="user/orders/:id" element={<UserOrderDetail />} />

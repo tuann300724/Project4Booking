@@ -5,37 +5,29 @@ const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Giả lập fetch dữ liệu đơn hàng
-    setOrder({
-      id: id,
-      customerName: 'Nguyễn Văn A',
-      email: 'nguyenvana@example.com',
-      phone: '0123456789',
-      address: '123 Đường ABC, Quận XYZ, TP.HCM',
-      date: '2024-03-15',
-      status: 'confirmed',
-      totalAmount: 1500000,
-      items: [
-        {
-          id: 1,
-          name: 'Áo thun nam',
-          price: 250000,
-          quantity: 2,
-          total: 500000
-        },
-        {
-          id: 2,
-          name: 'Quần jean nam',
-          price: 500000,
-          quantity: 2,
-          total: 1000000
+    const fetchOrderAndUser = async () => {
+      try {
+        const res = await fetch(`http://localhost:8080/api/orders/${id}`);
+        if (res.ok) {
+          const orderData = await res.json();
+          setOrder(orderData);
+          // Lấy thông tin user
+          if (orderData.userId) {
+            const resUser = await fetch(`http://localhost:8080/api/users/${orderData.userId}`);
+            if (resUser.ok) {
+              const userData = await resUser.json();
+              setUser(userData);
+            }
+          }
         }
-      ]
-    });
-    setLoading(false);
+      } catch {}
+      setLoading(false);
+    };
+    fetchOrderAndUser();
   }, [id]);
 
   const getStatusColor = (status) => {
@@ -47,6 +39,7 @@ const OrderDetail = () => {
       case 'in_delivery':
         return 'bg-purple-100 text-purple-800';
       case 'completed':
+      case 'success':
         return 'bg-green-100 text-green-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
@@ -87,11 +80,19 @@ const OrderDetail = () => {
     );
   }
 
+  if (!order) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-red-500">Không tìm thấy đơn hàng!</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Chi tiết đơn hàng #{order.id}</h1>
+          <h1 className="text-2xl font-bold text-purple-700">Chi tiết đơn hàng #{order.id}</h1>
           <button
             onClick={() => navigate('/admin/orders')}
             className="px-4 py-2 text-gray-600 hover:text-gray-800"
@@ -106,23 +107,23 @@ const OrderDetail = () => {
             <div>
               <h2 className="text-lg font-semibold mb-4">Thông tin khách hàng</h2>
               <div className="space-y-2">
-                <p><span className="font-medium">Tên:</span> {order.customerName}</p>
-                <p><span className="font-medium">Email:</span> {order.email}</p>
-                <p><span className="font-medium">Điện thoại:</span> {order.phone}</p>
-                <p><span className="font-medium">Địa chỉ:</span> {order.address}</p>
+                <p><span className="font-medium">Tên:</span> {user?.fullName || user?.name || '---'}</p>
+                <p><span className="font-medium">Email:</span> {user?.email || '---'}</p>
+                <p><span className="font-medium">Điện thoại:</span> {user?.phone || '---'}</p>
+                <p><span className="font-medium">Địa chỉ:</span> {user?.address || order.address || '---'}</p>
               </div>
             </div>
             <div>
               <h2 className="text-lg font-semibold mb-4">Thông tin đơn hàng</h2>
               <div className="space-y-2">
-                <p><span className="font-medium">Ngày đặt:</span> {order.date}</p>
+                <p><span className="font-medium">Ngày đặt:</span> {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''}</p>
                 <p>
                   <span className="font-medium">Trạng thái:</span>{' '}
                   <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
                     {getStatusText(order.status)}
                   </span>
                 </p>
-                <p><span className="font-medium">Tổng tiền:</span> {formatCurrency(order.totalAmount)}</p>
+                <p><span className="font-medium">Tổng tiền:</span> {formatCurrency(order.total)}</p>
               </div>
             </div>
           </div>
@@ -150,10 +151,10 @@ const OrderDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {order.items.map((item) => (
-                  <tr key={item.id}>
+                {(order.items || order.orderItems || []).map((item, idx) => (
+                  <tr key={item.id || idx}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                      <div className="text-sm font-medium text-gray-900">{item.name || `Sản phẩm #${item.productId}`}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(item.price)}</div>
@@ -162,7 +163,7 @@ const OrderDetail = () => {
                       <div className="text-sm text-gray-900">{item.quantity}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(item.total)}</div>
+                      <div className="text-sm text-gray-900">{formatCurrency(item.total || (item.price * item.quantity))}</div>
                     </td>
                   </tr>
                 ))}
@@ -190,4 +191,4 @@ const OrderDetail = () => {
   );
 };
 
-export default OrderDetail; 
+export default OrderDetail;

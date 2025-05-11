@@ -220,9 +220,8 @@ const Products = () => {
                             >
                               {sizeInfo.id.sizeId === 1 ? 'S' :
                                sizeInfo.id.sizeId === 2 ? 'M' :
-                               sizeInfo.id.sizeId === 3 ? 'L' :
-                               sizeInfo.id.sizeId === 4 ? 'XL' :
-                               sizeInfo.id.sizeId === 5 ? 'XXL' : sizeInfo.id.sizeId}
+                               sizeInfo.id.sizeId === 3 ? 'X' :
+                               sizeInfo.id.sizeId === 4 ? 'XL'  : sizeInfo.id.sizeId}
                             </span>
                           ))}
                       </div>

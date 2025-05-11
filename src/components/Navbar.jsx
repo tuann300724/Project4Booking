@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
 const Navbar = () => {
-  const { cart } = useCart();
+  const { cart, getTotalItems } = useCart();
   
-  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+  const totalItems = getTotalItems();
+  console.log('Navbar - Cart data:', cart);
+  console.log('Navbar - Total items:', totalItems);
 
   return (
     <nav className="bg-white shadow-lg">
@@ -72,7 +74,10 @@ const Navbar = () => {
                 <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
               </svg>
               {totalItems > 0 && (
-                <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span 
+                  className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                  style={{ minWidth: '20px' }}
+                >
                   {totalItems}
                 </span>
               )}

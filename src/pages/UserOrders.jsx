@@ -1,57 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import axios from 'axios';
 
 const UserOrders = () => {
-  const { user } = useUser();
+  const { user, openLoginModal } = useUser();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchOrders = async () => {
+      // Kiểm tra nếu user chưa đăng nhập
+      if (!user || !user.id) {
+        setError('Bạn cần đăng nhập để xem đơn hàng');
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Replace with actual API call once it's available
-        // const response = await axios.get(`http://localhost:8080/api/users/${user.id}/orders`);
-        // setOrders(response.data);
-        
-        // Mock data for now
-        setTimeout(() => {
-          const mockOrders = [
-            {
-              id: 1,
-              date: '15/03/2024',
-              status: 'completed',
-              totalAmount: 1250000,
-              items: [
-                { id: 1, name: 'Áo sơ mi trắng', quantity: 2, price: 250000 },
-                { id: 2, name: 'Quần jean nam', quantity: 1, price: 750000 }
-              ]
-            },
-            {
-              id: 2,
-              date: '10/03/2024',
-              status: 'in_delivery',
-              totalAmount: 560000,
-              items: [
-                { id: 3, name: 'Áo thun nữ', quantity: 2, price: 180000 },
-                { id: 4, name: 'Váy dài', quantity: 1, price: 200000 }
-              ]
-            },
-            {
-              id: 3,
-              date: '28/02/2024',
-              status: 'cancelled',
-              totalAmount: 820000,
-              items: [
-                { id: 5, name: 'Giày thể thao', quantity: 1, price: 820000 }
-              ]
-            }
-          ];
-          setOrders(mockOrders);
-          setLoading(false);
-        }, 800); // Simulate network delay
+        const response = await axios.get(`http://localhost:8080/api/orders/user/${user.id}`);
+        setOrders(response.data);
+        setLoading(false);
       } catch (err) {
         setError('Không thể tải đơn hàng. Vui lòng thử lại sau.');
         setLoading(false);
@@ -59,7 +31,7 @@ const UserOrders = () => {
     };
 
     fetchOrders();
-  }, [user]);
+  }, [user, navigate]);
 
   const getStatusInfo = (status) => {
     switch (status) {
@@ -107,12 +79,29 @@ const UserOrders = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <h2 className="text-2xl font-bold mb-2">{error}</h2>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
-                Thử lại
-              </button>
+              {error === 'Bạn cần đăng nhập để xem đơn hàng' ? (
+                <div className="mt-4">
+                  <button
+                    onClick={() => navigate('/')}
+                    className="px-6 py-2 mr-3 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                  >
+                    Về trang chủ
+                  </button>
+                  <button 
+                    onClick={openLoginModal}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                  >
+                    Đăng nhập
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="mt-4 px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                >
+                  Thử lại
+                </button>
+              )}
             </div>
           </div>
         </div>

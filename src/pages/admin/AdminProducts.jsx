@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
@@ -56,79 +57,45 @@ const AdminProducts = () => {
   };
 
   if (loading) {
-    return <div>Đang tải...</div>;
+    return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Quản lý sản phẩm</h1>
-        <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-          Thêm sản phẩm
-        </button>
+    <div className="min-h-screen">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-purple-700">Quản lý sản phẩm</h1>
+        <Link to="/admin/products/new" className="bg-purple-600 text-white px-6 py-2 rounded-lg shadow hover:bg-purple-700 transition font-semibold">
+          + Thêm sản phẩm
+        </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-purple-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Mã sản phẩm
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tên sản phẩm
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Danh mục
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Giá
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tồn kho
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Trạng thái
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Thao tác
-              </th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Mã sản phẩm</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tên sản phẩm</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Danh mục</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Giá</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tồn kho</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Trạng thái</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Thao tác</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {products.map((product) => (
-              <tr key={product.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  #{product.id}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {product.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {product.category}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatCurrency(product.price)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {product.stock}
-                </td>
+              <tr key={product.id} className="hover:bg-purple-50 transition">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">#{product.id}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">{product.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.category}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-purple-700 font-bold">{formatCurrency(product.price)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.stock}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                      product.status
-                    )}`}
-                  >
-                    {product.status}
-                  </span>
+                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(product.status)}`}>{product.status}</span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <button className="text-blue-600 hover:text-blue-900 mr-3">
-                    Sửa
-                  </button>
-                  <button className="text-red-600 hover:text-red-900">
-                    Xóa
-                  </button>
+                  <button className="text-blue-600 hover:text-blue-900 mr-3 font-semibold">Sửa</button>
+                  <button className="text-red-600 hover:text-red-900 font-semibold">Xóa</button>
                 </td>
               </tr>
             ))}

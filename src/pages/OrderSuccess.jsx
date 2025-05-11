@@ -1,7 +1,24 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const OrderSuccess = () => {
+  const [order, setOrder] = useState(null);
+
+  useEffect(() => {
+    const lastOrder = localStorage.getItem('lastOrder');
+    if (lastOrder) {
+      setOrder(JSON.parse(lastOrder));
+    }
+  }, []);
+
+  if (!order) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Không tìm thấy thông tin đơn hàng!</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-16">
       <div className="container mx-auto px-4">
@@ -32,10 +49,13 @@ const OrderSuccess = () => {
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin đơn hàng</h2>
             <div className="space-y-2 text-sm text-gray-600">
-              <p>Mã đơn hàng: <span className="font-medium text-gray-800">#123456</span></p>
-              <p>Ngày đặt: <span className="font-medium text-gray-800">15/03/2024</span></p>
-              <p>Trạng thái: <span className="font-medium text-green-600">Đã xác nhận</span></p>
+              <p>Mã đơn hàng: <span className="font-medium text-gray-800">#{order.id}</span></p>
+              <p>Ngày đặt: <span className="font-medium text-gray-800">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''}</span></p>
+              <p>Trạng thái: <span className="font-medium text-green-600">{order.status}</span></p>
+              <p>Tổng tiền: <span className="font-medium text-purple-600">{order.total?.toLocaleString('vi-VN')}đ</span></p>
+              <p>Phương thức thanh toán: <span className="font-medium">{order.paymentStatus}</span></p>
             </div>
+           
           </div>
 
           <div className="space-y-4">
@@ -46,7 +66,7 @@ const OrderSuccess = () => {
               Tiếp tục mua sắm
             </Link>
             <Link
-              to="/orders"
+              to={'/user/orders'}
               className="block w-full border-2 border-purple-600 text-purple-600 py-3 rounded-lg hover:bg-purple-50 transition duration-300"
             >
               Xem đơn hàng của tôi
@@ -62,4 +82,4 @@ const OrderSuccess = () => {
   );
 };
 
-export default OrderSuccess; 
+export default OrderSuccess;

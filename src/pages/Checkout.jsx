@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { getAllSizes } from '../api/productService';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
   const navigate = useNavigate();
+  const [sizes, setSizes] = useState([]);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -14,6 +16,19 @@ const Checkout = () => {
     paymentMethod: 'cod'
   });
 
+  useEffect(() => {
+    // Lấy danh sách size từ API
+    const fetchSizes = async () => {
+      try {
+        const data = await getAllSizes();
+        setSizes(data);
+      } catch (err) {
+        setSizes([]);
+      }
+    };
+    fetchSizes();
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -22,11 +37,53 @@ const Checkout = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Order submitted:', { items: cart, ...formData });
-    clearCart();
-    navigate('/order-success');
+    // Map size name sang id nếu cần
+    const orderItems = cart.map(item => {
+      let sizeId = item.size;
+      // Nếu item.size là tên (S, M, X, XL), map sang id
+      if (typeof sizeId === 'string') {
+        const found = sizes.find(s => s.name === sizeId);
+        if (found) sizeId = found.id;
+      }
+      return {
+        productId: item.id,
+        sizeId: sizeId,
+        quantity: item.quantity,
+        price: item.price
+      };
+    });
+
+    const orderData = {
+      userId: 1, // Nếu có user đăng nhập thì lấy userId động
+      total: calculateTotal(),
+      status: 'Chưa thanh toán',
+      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Đã thanh toán',
+      receiverName: formData.fullName,
+      receiverEmail: formData.email,
+      receiverPhone: formData.phone,
+      receiverAddress: `${formData.address}, ${formData.city}`,
+      orderItems
+    };
+
+    try {
+      const res = await fetch('http://localhost:8080/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+      if (res.ok) {
+        const order = await res.json();
+        localStorage.setItem('lastOrder', JSON.stringify(order));
+        clearCart();
+        navigate('/order-success');
+      } else {
+        alert('Đặt hàng thất bại!');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối server!');
+    }
   };
 
   const calculateTotal = () => {
@@ -115,8 +172,7 @@ const Checkout = () => {
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
                 >
-                  <option value="cod">Thanh toán khi nhận hàng (COD)</option>
-                  <option value="banking">Chuyển khoản ngân hàng</option>
+                  <option value="cod">Thanh toán bằng tiền mặt (COD)</option>
                   <option value="momo">Ví MoMo</option>
                 </select>
               </div>

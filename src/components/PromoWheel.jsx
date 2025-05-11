@@ -127,7 +127,7 @@ const PromoWheel = ({ isOpen, onClose }) => {
                         className="w-full h-full flex items-center justify-center"
                         style={{ backgroundColor: prize.color, transform: 'rotate(45deg)' }}
                       >
-                        <span className="transform -rotate-90 absolute text-center" style={{ width: '80px', top: '40px', left: 'calc(50% - 50px)' }}>
+                        <span className="transform -rotate-90 absolute text-center" style={{ width: '80px', top: '40px', left: 'calc(50% - 55px)' }}>
                           {prize.label}
                         </span>
                       </div>

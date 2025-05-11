@@ -66,7 +66,7 @@ const OrderSuccess = () => {
               Tiếp tục mua sắm
             </Link>
             <Link
-              to="/orders"
+              to={'/user/orders'}
               className="block w-full border-2 border-purple-600 text-purple-600 py-3 rounded-lg hover:bg-purple-50 transition duration-300"
             >
               Xem đơn hàng của tôi

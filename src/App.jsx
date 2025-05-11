@@ -21,8 +21,6 @@ import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
 import OrderList from "./pages/OrderList";
 import OrderDetailUser from "./pages/OrderDetailUser";
-import EditProduct from "./pages/admin/EditProduct";
-import ProductForm from "./pages/admin/ProductForm";
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -43,9 +41,10 @@ function App() {
               <Route path="contact" element={<Contact />} />
               <Route path="cart" element={<Card />} />
               <Route path="checkout" element={<Checkout />} />
-              <Route path="orderslist" element={<OrderList />} />
+              {/* <Route path="orderslist" element={<OrderList />} /> */}
               <Route path="order-success" element={<OrderSuccess />} />
-              <Route path="orderslist/:id" element={<OrderDetailUser />} />
+              <Route path="user/orders" element={<UserOrders />} />
+              <Route path="user/orders/:id" element={<UserOrderDetail />} />
             </Route>
 
             {/* Routes cho trang admin */}

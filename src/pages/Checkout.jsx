@@ -58,8 +58,12 @@ const Checkout = () => {
     const orderData = {
       userId: 1, // Nếu có user đăng nhập thì lấy userId động
       total: calculateTotal(),
-      status: 'pending',
-      paymentStatus: formData.paymentMethod === 'cod' ? 'Chưa thanh toán' : 'Đã thanh toán',
+      status: 'Chưa thanh toán',
+      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Đã thanh toán',
+      receiverName: formData.fullName,
+      receiverEmail: formData.email,
+      receiverPhone: formData.phone,
+      receiverAddress: `${formData.address}, ${formData.city}`,
       orderItems
     };
 

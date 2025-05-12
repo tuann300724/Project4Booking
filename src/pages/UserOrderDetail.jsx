@@ -8,64 +8,31 @@ const UserOrderDetail = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const [order, setOrder] = useState(null);
+  const [orderItems, setOrderItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updating, setUpdating] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+
+  const fetchOrderDetails = async () => {
+    try {
+      // Fetch order details
+      const orderResponse = await axios.get(`http://localhost:8080/api/orders/${id}`);
+      setOrder(orderResponse.data);
+      
+      // Fetch order items
+      const itemsResponse = await axios.get(`http://localhost:8080/api/order-items/order/${id}`);
+      setOrderItems(itemsResponse.data);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      setError('Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.');
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrderDetails = async () => {
-      try {
-        // Replace with actual API call once available
-        // const response = await axios.get(`http://localhost:8080/api/orders/${id}`);
-        // setOrder(response.data);
-        
-        // Mock data for now
-        setTimeout(() => {
-          const mockOrder = {
-            id: id,
-            orderNumber: `ORD-${id}-${Math.floor(Math.random() * 100000)}`,
-            date: '15/03/2024',
-            status: 'in_delivery',
-            totalAmount: 1250000,
-            shippingFee: 30000,
-            discount: 50000,
-            paymentMethod: 'COD',
-            shippingInfo: {
-              name: 'Nguyễn Văn A',
-              phone: '0123456789',
-              address: 'Số 123, Đường Lê Lợi, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-              note: 'Giao hàng giờ hành chính'
-            },
-            trackingInfo: [
-              { status: 'placed', date: '15/03/2024 08:30', text: 'Đơn hàng đã được đặt' },
-              { status: 'confirmed', date: '15/03/2024 09:15', text: 'Đơn hàng đã được xác nhận' },
-              { status: 'in_delivery', date: '16/03/2024 11:20', text: 'Đơn hàng đang được giao' }
-            ],
-            items: [
-              { 
-                id: 1, 
-                name: 'Áo sơ mi trắng', 
-                quantity: 2, 
-                price: 250000,
-                image: '/images/products/shirt.jpg' 
-              },
-              { 
-                id: 2, 
-                name: 'Quần jean nam', 
-                quantity: 1, 
-                price: 750000,
-                image: '/images/products/jeans.jpg'
-              }
-            ]
-          };
-          setOrder(mockOrder);
-          setLoading(false);
-        }, 800); // Simulate network delay
-      } catch (err) {
-        setError('Không thể tải thông tin đơn hàng. Vui lòng thử lại sau.');
-        setLoading(false);
-      }
-    };
-
     fetchOrderDetails();
   }, [id]);
 
@@ -88,6 +55,45 @@ const UserOrderDetail = () => {
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+  };
+
+  // Format date from ISO string to readable format
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleOrderReceived = async () => {
+    setUpdating(true);
+    try {
+      // Update order status to completed
+      await axios.put(`http://localhost:8080/api/orders/${id}/status`, {
+        status: 'Đã thanh toán'
+      });
+      
+      // Update payment status if it's COD
+      if (order.paymentMethod === 'COD') {
+        await axios.put(`http://localhost:8080/api/orders/${id}/payment`, {
+          paymentStatus: 'paid'
+        });
+      }
+      
+      setUpdateSuccess(true);
+      // Refresh order details
+      await fetchOrderDetails();
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      setError('Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại sau.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const getStatusIcon = (icon) => {
@@ -175,6 +181,12 @@ const UserOrderDetail = () => {
 
   const statusInfo = getStatusInfo(order.status);
 
+  // Calculate order summary
+  const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discount = order.discount || 0;
+  const shippingFee = order.shippingFee || 0;
+  const total = order.total || subtotal + shippingFee - discount;
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4">
@@ -193,12 +205,25 @@ const UserOrderDetail = () => {
             <div className="w-5"></div> {/* Spacer for alignment */}
           </div>
 
+          {updateSuccess && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+              <strong className="font-bold">Thành công! </strong>
+              <span className="block sm:inline">Đã cập nhật trạng thái đơn hàng.</span>
+              <span className="absolute top-0 bottom-0 right-0 px-4 py-3" onClick={() => setUpdateSuccess(false)}>
+                <svg className="fill-current h-6 w-6 text-green-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <title>Đóng</title>
+                  <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/>
+                </svg>
+              </span>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
             <div className="p-6">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h2 className="text-lg font-medium text-gray-900">Đơn hàng {order.orderNumber}</h2>
-                  <p className="text-sm text-gray-600 mt-1">Ngày đặt: {order.date}</p>
+                  <h2 className="text-lg font-medium text-gray-900">Đơn hàng #{order.id}</h2>
+                  <p className="text-sm text-gray-600 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
                 </div>
                 <div>
                   <span className={`flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}>
@@ -208,56 +233,16 @@ const UserOrderDetail = () => {
                 </div>
               </div>
 
-              {/* Progress Timeline */}
-              <div className="mb-8">
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="h-1 w-full bg-gray-200 rounded"></div>
-                  </div>
-                  <div className="relative flex justify-between">
-                    {['placed', 'confirmed', 'in_delivery', 'completed'].map((step, index) => {
-                      const isCompleted = order.trackingInfo.some(t => t.status === step);
-                      const isActive = order.status === step;
-                      return (
-                        <div key={step} className="flex flex-col items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            isActive 
-                              ? 'bg-purple-600 text-white'
-                              : isCompleted 
-                              ? 'bg-green-500 text-white' 
-                              : 'bg-gray-200'
-                          }`}>
-                            {isCompleted ? (
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <span>{index + 1}</span>
-                            )}
-                          </div>
-                          <span className={`text-xs mt-1 ${isActive ? 'font-medium text-purple-600' : isCompleted ? 'text-green-600' : 'text-gray-500'}`}>
-                            {step === 'placed' && 'Đặt hàng'}
-                            {step === 'confirmed' && 'Xác nhận'}
-                            {step === 'in_delivery' && 'Đang giao'}
-                            {step === 'completed' && 'Hoàn thành'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
               {/* Order Items */}
               <div className="border-t border-gray-200 pt-6 mb-6">
                 <h3 className="font-medium text-gray-900 mb-4">Sản phẩm đã đặt</h3>
                 <div className="space-y-4">
-                  {order.items.map((item) => (
+                  {orderItems.map((item) => (
                     <div key={item.id} className="flex items-center">
                       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
                         <img 
-                          src={item.image || 'https://placehold.co/200x200?text=No+Image'} 
-                          alt={item.name}
+                          src={item.product?.imageUrls?.[0] || 'https://placehold.co/200x200?text=No+Image'} 
+                          alt={item.product?.name}
                           className="h-full w-full object-cover object-center"
                           onError={(e) => {
                             e.target.onerror = null;
@@ -266,8 +251,10 @@ const UserOrderDetail = () => {
                         />
                       </div>
                       <div className="ml-4 flex-1">
-                        <h4 className="font-medium text-gray-900">{item.name}</h4>
-                        <p className="mt-1 text-sm text-gray-500">Số lượng: {item.quantity}</p>
+                        <h4 className="font-medium text-gray-900">{item.product?.name}</h4>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Size: {item.size?.name} | Số lượng: {item.quantity}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-gray-900">{formatCurrency(item.price)}</p>
@@ -283,21 +270,21 @@ const UserOrderDetail = () => {
               {/* Price Summary */}
               <div className="border-t border-gray-200 pt-4">
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
+                  {/* <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tạm tính</span>
-                    <span className="text-gray-900">{formatCurrency(order.totalAmount + order.discount - order.shippingFee)}</span>
+                    <span className="text-gray-900">{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Giảm giá</span>
-                    <span className="text-green-600">-{formatCurrency(order.discount)}</span>
+                    <span className="text-green-600">-{formatCurrency(discount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Phí vận chuyển</span>
-                    <span className="text-gray-900">{formatCurrency(order.shippingFee)}</span>
-                  </div>
-                  <div className="pt-4 border-t border-gray-200 flex justify-between">
+                    <span className="text-gray-900">{formatCurrency(shippingFee)}</span>
+                  </div> */}
+                  <div className="pt-4 flex justify-between">
                     <span className="font-medium">Tổng cộng</span>
-                    <span className="font-bold text-lg text-purple-600">{formatCurrency(order.totalAmount)}</span>
+                    <span className="font-bold text-lg text-purple-600">{formatCurrency(total)}</span>
                   </div>
                 </div>
               </div>
@@ -305,44 +292,65 @@ const UserOrderDetail = () => {
           </div>
 
           {/* Customer and Shipping Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin giao hàng</h3>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-medium">Họ tên:</span> {order.shippingInfo.name}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Số điện thoại:</span> {order.shippingInfo.phone}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Địa chỉ:</span> {order.shippingInfo.address}
-                </p>
-                {order.shippingInfo.note && (
+          {order.shippingInfo && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin giao hàng</h3>
+                <div className="space-y-2">
                   <p className="text-sm">
-                    <span className="font-medium">Ghi chú:</span> {order.shippingInfo.note}
+                    <span className="font-medium">Họ tên:</span> {order.shippingInfo.name}
                   </p>
-                )}
+                  <p className="text-sm">
+                    <span className="font-medium">Số điện thoại:</span> {order.shippingInfo.phone}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Địa chỉ:</span> {order.shippingInfo.address}
+                  </p>
+                  {order.shippingInfo.note && (
+                    <p className="text-sm">
+                      <span className="font-medium">Ghi chú:</span> {order.shippingInfo.note}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin thanh toán</h3>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-medium">Phương thức:</span>{' '}
-                  {order.paymentMethod === 'COD' ? 'Thanh toán khi nhận hàng' : order.paymentMethod}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Trạng thái:</span>{' '}
-                  <span className="text-green-600">Đã xác nhận</span>
-                </p>
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin thanh toán</h3>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium">Phương thức:</span>{' '}
+                    {order.paymentMethod === 'COD' ? 'Thanh toán khi nhận hàng' : order.paymentMethod}
+                  </p>
+                  <p className="text-sm">
+                    <span className="font-medium">Trạng thái thanh toán:</span>{' '}
+                    <span className={order.paymentStatus === 'paid' ? 'text-green-600' : 'text-yellow-600'}>
+                      {order.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                    </span>
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+            {order.status === 'Chưa thanh toán' && (
+              <button 
+                onClick={handleOrderReceived}
+                disabled={updating}
+                className={`px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors ${updating ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {updating ? (
+                  <>
+                    <span className="inline-block mr-2 align-middle h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  'Đã nhận được hàng'
+                )}
+              </button>
+            )}
+
             {order.status === 'pending' && (
               <button className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
                 Hủy đơn hàng

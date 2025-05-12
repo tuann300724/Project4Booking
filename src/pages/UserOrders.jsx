@@ -36,7 +36,21 @@ const UserOrders = () => {
       
       try {
         const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`);
-        setOrders(response.data);
+        
+        // Fetch order items for each order
+        const ordersWithItems = await Promise.all(
+          response.data.map(async (order) => {
+            try {
+              const itemsResponse = await axios.get(`http://localhost:8080/api/order-items/order/${order.id}`);
+              return { ...order, orderItems: itemsResponse.data };
+            } catch (err) {
+              console.error(`Error fetching items for order ${order.id}:`, err);
+              return { ...order, orderItems: [] };
+            }
+          })
+        );
+        
+        setOrders(ordersWithItems);
         setLoading(false);
       } catch (err) {
         setError('Không thể tải đơn hàng. Vui lòng thử lại sau.');
@@ -181,7 +195,10 @@ const UserOrders = () => {
                               <div key={item.id} className="flex justify-between text-sm">
                                 <div className="flex">
                                   <span className="font-medium">{item.quantity}x</span>
-                                  <span className="ml-2 text-gray-700">Sản phẩm #{item.productId}</span>
+                                  <span className="ml-2 text-gray-700">
+                                    {item.product?.name || `Sản phẩm #${item.productId}`}
+                                    {item.size && ` - Size ${item.size.name}`}
+                                  </span>
                                 </div>
                                 <span className="text-gray-800 font-medium">{formatCurrency(item.price * item.quantity)}</span>
                               </div>

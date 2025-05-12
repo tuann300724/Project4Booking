@@ -1,37 +1,100 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Modal from './Modal';
 
 const prizes = [
-  { label: 'Giảm 10%', color: '#ff6b6b', code: 'SPIN10', value: '10%' },
-  { label: 'Giảm 5%', color: '#4ecdc4', code: 'SPIN5', value: '5%' },
-  { label: 'Giảm 50K', color: '#ff9f43', code: 'SPIN50K', value: '50.000đ' },
-  { label: 'Chúc bạn may mắn lần sau', color: '#bbb', code: null, value: null },
-  { label: 'Giảm 20%', color: '#e056fd', code: 'SPIN20', value: '20%' },
-  { label: 'Giảm 100K', color: '#f53b57', code: 'SPIN100K', value: '100.000đ' },
-  { label: 'Mua 1 tặng 1', color: '#5f27cd', code: 'BUY1GET1', value: 'Mua 1 tặng 1' },
-  { label: 'Giảm 15%', color: '#0abde3', code: 'SPIN15', value: '15%' },
+  { label: 'Giảm 10%', color: '#ff6b6b', code: 'SPIN10', value: '10%', discountType: "percentage" },
+  { label: 'Giảm 5%', color: '#4ecdc4', code: 'SPIN5', value: '5%', discountType: "percentage" },
+  { label: 'Giảm 50K', color: '#ff9f43', code: 'SPIN50K', value: '50.000đ', discountType: "fixed" },
+  { label: 'Chúc bạn may mắn lần sau', color: '#bbb', code: null, value: null, discountType: null },
+  { label: 'Giảm 20%', color: '#e056fd', code: 'SPIN20', value: '20%', discountType: "percentage" },
+  { label: 'Giảm 100K', color: '#f53b57', code: 'SPIN100K', value: '100.000đ', discountType: "fixed" },
+  { label: 'Giảm 1%', color: '#5f27cd', code: 'SPIN1', value: '1%', discountType: "percentage" },
+  { label: 'Giảm 15%', color: '#0abde3', code: 'SPIN15', value: '15%', discountType: "percentage" },
 ];
 
-const PromoWheel = ({ isOpen, onClose }) => {
+// Index of "Chúc bạn may mắn lần sau" prize
+const BETTER_LUCK_INDEX = 3;
+
+// Constants
+const COOLDOWN_SECONDS = 10; // 10 seconds for testing
+
+const PromoWheel = ({ isOpen, onClose, userId = 3 }) => {
   const [spinning, setSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [selectedPrize, setSelectedPrize] = useState(null);
   const [showResult, setShowResult] = useState(false);
-  const [spinCount, setSpinCount] = useState(() => {
-    const saved = localStorage.getItem('spinCount');
-    return saved ? parseInt(saved) : 0;
+  const [lastSpinTime, setLastSpinTime] = useState(() => {
+    return localStorage.getItem('lastSpinTime') || null;
   });
-  const [remainingSpins, setRemainingSpins] = useState(() => {
-    const saved = localStorage.getItem('spinCount');
-    return saved ? Math.max(0, 3 - parseInt(saved)) : 3;
+  const [canSpin, setCanSpin] = useState(() => {
+    const lastSpin = localStorage.getItem('lastSpinTime');
+    if (!lastSpin) return true;
+    
+    // Check if cooldown period has passed since last spin
+    const lastSpinDate = new Date(parseInt(lastSpin));
+    const now = new Date();
+    const secondsPassed = (now - lastSpinDate) / 1000;
+    return secondsPassed >= COOLDOWN_SECONDS;
   });
+  const [countdown, setCountdown] = useState(0);
+  const [timeDisplay, setTimeDisplay] = useState('');
+  const [saveStatus, setSaveStatus] = useState(null); // 'success', 'error', or null
+  
   const wheelRef = useRef(null);
   const buttonRef = useRef(null);
+  const intervalRef = useRef(null);
 
-  // Save spin count to localStorage
-  useEffect(() => {
-    localStorage.setItem('spinCount', spinCount.toString());
-  }, [spinCount]);
+  // Format time remaining for display
+  const formatTimeRemaining = (seconds) => {
+    if (seconds <= 0) return '';
+    return `${seconds} giây`;
+  };
+
+  // Function to check if user can spin and update countdown
+  const checkSpinEligibility = useCallback(() => {
+    const lastSpin = localStorage.getItem('lastSpinTime');
+    if (!lastSpin) {
+      setCanSpin(true);
+      setCountdown(0);
+      setTimeDisplay('');
+      return 0;
+    }
+    
+    // Check if cooldown period has passed since last spin
+    const lastSpinDate = new Date(parseInt(lastSpin));
+    const now = new Date();
+    const secondsPassed = (now - lastSpinDate) / 1000;
+    const secondsUntilNextSpin = Math.max(0, Math.ceil(COOLDOWN_SECONDS - secondsPassed));
+    
+    const canSpinNow = secondsPassed >= COOLDOWN_SECONDS;
+    setCanSpin(canSpinNow);
+    setCountdown(canSpinNow ? 0 : secondsUntilNextSpin);
+    setTimeDisplay(formatTimeRemaining(secondsUntilNextSpin));
+    
+    return secondsUntilNextSpin;
+  }, []);
+
+  // Update countdown on a regular basis
+  const startCountdownTimer = useCallback(() => {
+    // Clear any existing interval first
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
+    // For testing, update every second
+    const updateInterval = 1000; // 1 second
+    
+    // Start a new interval
+    intervalRef.current = setInterval(() => {
+      const timeLeft = checkSpinEligibility();
+      
+      // If time is up, clear the interval
+      if (timeLeft <= 0) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }, updateInterval);
+  }, [checkSpinEligibility]);
 
   // Reset everything when modal closes
   useEffect(() => {
@@ -40,23 +103,127 @@ const PromoWheel = ({ isOpen, onClose }) => {
       setWheelRotation(0);
       setSelectedPrize(null);
       setShowResult(false);
+      
+      // Clear any existing interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    } else {
+      // Check spin eligibility on open and start timer if needed
+      const timeLeft = checkSpinEligibility();
+      if (timeLeft > 0) {
+        startCountdownTimer();
+      }
     }
-  }, [isOpen]);
+    
+    // Cleanup on unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isOpen, checkSpinEligibility, startCountdownTimer]);
+  
+  // Start countdown when lastSpinTime changes
+  useEffect(() => {
+    if (lastSpinTime && !canSpin) {
+      startCountdownTimer();
+    }
+    
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [lastSpinTime, canSpin, startCountdownTimer]);
+
+  // Function to save voucher to API
+  const saveVoucherToAPI = async (prize) => {
+    // Only save vouchers if there's an actual prize (code is not null)
+    if (!prize || !prize.code) return;
+    
+    try {
+      // Create start date (now) and end date (24 hours from now)
+      const startDate = new Date();
+      const endDate = new Date(startDate);
+      endDate.setHours(endDate.getHours() + 24);
+      
+      // Format dates as ISO strings
+      const formattedStartDate = startDate.toISOString();
+      const formattedEndDate = endDate.toISOString();
+      
+      // Get discount value from the prize
+      let discountValue;
+      if (prize.discountType === "percentage") {
+        // Convert percentage to number (e.g., "10%" to 10)
+        discountValue = parseInt(prize.value.replace(/%/g, ''), 10);
+      } else if (prize.discountType === "fixed") {
+        // Convert fixed amount (e.g., "50.000đ" to 50000)
+        discountValue = parseInt(prize.value.replace(/\D/g, ''), 10);
+      }
+      
+      // Prepare the voucher data
+      const voucherData = {
+        code: prize.code,
+        discountType: prize.discountType,
+        discountValue: discountValue,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+        used: false,
+        userId: userId
+      };
+      
+      // Make the API call
+      const response = await fetch('http://localhost:8080/api/vouchers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(voucherData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      setSaveStatus('success');
+      console.log('Voucher saved successfully', await response.json());
+    } catch (error) {
+      setSaveStatus('error');
+      console.error('Error saving voucher:', error);
+    }
+  };
 
   const spinWheel = () => {
-    if (spinning || remainingSpins <= 0) return;
+    if (spinning || !canSpin) return;
     
     setSpinning(true);
     setShowResult(false);
     setSelectedPrize(null);
+    setSaveStatus(null);
     
-    // Increment spin count
-    const newSpinCount = spinCount + 1;
-    setSpinCount(newSpinCount);
-    setRemainingSpins(Math.max(0, 3 - newSpinCount));
+    // Record spin time
+    const now = new Date().getTime();
+    localStorage.setItem('lastSpinTime', now.toString());
+    setLastSpinTime(now);
+    setCanSpin(false);
     
-    // Determine winning prize (random selection)
-    const prizeIndex = Math.floor(Math.random() * prizes.length);
+    // Determine winning prize with weighted probability
+    // 80% chance for "Chúc bạn may mắn lần sau", 20% for other prizes
+    let prizeIndex;
+    if (Math.random() < 0.8) {
+      // 80% chance to get "Chúc bạn may mắn lần sau"
+      prizeIndex = BETTER_LUCK_INDEX;
+    } else {
+      // 20% chance to get any other prize
+      // Get random index excluding BETTER_LUCK_INDEX
+      const otherPrizes = [...Array(prizes.length).keys()].filter(i => i !== BETTER_LUCK_INDEX);
+      prizeIndex = otherPrizes[Math.floor(Math.random() * otherPrizes.length)];
+    }
+    
     const prize = prizes[prizeIndex];
     
     // Calculate rotation angle
@@ -73,6 +240,11 @@ const PromoWheel = ({ isOpen, onClose }) => {
       setSpinning(false);
       setSelectedPrize(prize);
       setShowResult(true);
+      
+      // If user won an actual prize (not "better luck next time"), save it to API
+      if (prize.code) {
+        saveVoucherToAPI(prize);
+      }
     }, 5000); // Match this with the CSS animation duration
   };
 
@@ -91,8 +263,21 @@ const PromoWheel = ({ isOpen, onClose }) => {
         {!showResult ? (
           <>
             <p className="text-gray-600 mb-6">
-              Quay để nhận mã giảm giá đặc biệt! Bạn còn {remainingSpins} lượt quay.
+              {canSpin 
+                ? "Quay để nhận mã giảm giá đặc biệt!" 
+                : `Vui lòng đợi ${timeDisplay} trước khi quay tiếp.`}
             </p>
+
+            {!canSpin && countdown > 0 && (
+              <div className="mb-4">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div 
+                    className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" 
+                    style={{ width: `${(countdown / COOLDOWN_SECONDS) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
 
             <div className="relative w-64 h-64 mx-auto mb-6">
               {/* Spin pointer */}
@@ -140,13 +325,13 @@ const PromoWheel = ({ isOpen, onClose }) => {
             <button
               ref={buttonRef}
               onClick={spinWheel}
-              disabled={spinning || remainingSpins <= 0}
+              disabled={spinning || !canSpin}
               className={`px-6 py-3 rounded-lg text-white font-bold shadow-lg transition-all
-                ${spinning || remainingSpins <= 0 
+                ${spinning || !canSpin 
                   ? 'bg-gray-500 cursor-not-allowed' 
                   : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transform hover:scale-105'}`}
             >
-              {spinning ? 'Đang quay...' : remainingSpins > 0 ? 'Quay ngay!' : 'Đã hết lượt quay'}
+              {spinning ? 'Đang quay...' : canSpin ? 'Quay ngay!' : `Đợi ${countdown}s`}
             </button>
           </>
         ) : (
@@ -175,6 +360,18 @@ const PromoWheel = ({ isOpen, onClose }) => {
                   </button>
                 </div>
                 
+                {saveStatus === 'success' && (
+                  <p className="text-sm text-green-500 mb-2">
+                    Mã giảm giá đã được lưu vào tài khoản của bạn
+                  </p>
+                )}
+                
+                {saveStatus === 'error' && (
+                  <p className="text-sm text-red-500 mb-2">
+                    Có lỗi khi lưu mã giảm giá. Vui lòng thử lại sau.
+                  </p>
+                )}
+                
                 <p className="text-sm text-gray-500 mb-4">
                   Mã giảm giá có hiệu lực trong 24 giờ
                 </p>
@@ -182,18 +379,6 @@ const PromoWheel = ({ isOpen, onClose }) => {
             )}
             
             <div className="flex justify-center space-x-3">
-              {remainingSpins > 0 && (
-                <button
-                  onClick={() => {
-                    setShowResult(false);
-                    setWheelRotation(0);
-                  }}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  Quay tiếp
-                </button>
-              )}
-              
               <button
                 onClick={onClose}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
@@ -206,7 +391,7 @@ const PromoWheel = ({ isOpen, onClose }) => {
 
         {!showResult && (
           <div className="mt-4 text-xs text-gray-500">
-            Mỗi tài khoản được quay tối đa 3 lần mỗi ngày
+            Mỗi tài khoản được quay 1 lần mỗi 10 giây
           </div>
         )}
       </div>

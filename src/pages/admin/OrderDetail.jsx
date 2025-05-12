@@ -7,6 +7,7 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     const fetchOrderAndUser = async () => {
@@ -32,16 +33,15 @@ const OrderDetail = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending':
+      case 'Đang xử lý':
         return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed':
-        return 'bg-blue-100 text-blue-800';
-      case 'in_delivery':
-        return 'bg-purple-100 text-purple-800';
-      case 'completed':
-      case 'success':
+      case 'Xác nhận':
         return 'bg-green-100 text-green-800';
-      case 'cancelled':
+      case 'Đang giao hàng':
+        return 'bg-purple-100 text-purple-800';
+      case 'Hoàn thành':
+        return 'bg-green-100 text-green-800';
+      case 'Đã hủy':
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -49,20 +49,7 @@ const OrderDetail = () => {
   };
 
   const getStatusText = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'Chờ xác nhận';
-      case 'confirmed':
-        return 'Đã xác nhận';
-      case 'in_delivery':
-        return 'Đang giao hàng';
-      case 'completed':
-        return 'Hoàn thành';
-      case 'cancelled':
-        return 'Đã hủy';
-      default:
-        return status;
-    }
+    return status; // Since we're now using Vietnamese status directly
   };
 
   const formatCurrency = (amount) => {
@@ -70,6 +57,47 @@ const OrderDetail = () => {
       style: 'currency',
       currency: 'VND'
     }).format(amount);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!order) return;
+    
+    const paymentMethod = order.paymentStatus === 'Thanh toán khi nhận hàng' ? 'cash' : 'momo';
+    
+    try {
+      setUpdating(true);
+      const response = await fetch(`http://localhost:8080/api/orders/${id}/confirm?paymentMethod=${paymentMethod}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Refresh order data
+        const updatedOrder = await response.json();
+        setOrder(updatedOrder);
+        alert('Cập nhật trạng thái thành công!');
+      } else {
+        alert('Có lỗi xảy ra khi cập nhật trạng thái!');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Có lỗi xảy ra khi cập nhật trạng thái!');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   if (loading) {
@@ -105,25 +133,51 @@ const OrderDetail = () => {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <h2 className="text-lg font-semibold mb-4">Thông tin khách hàng</h2>
-              <div className="space-y-2">
-                <p><span className="font-medium">Tên:</span> {user?.fullName || user?.name || '---'}</p>
-                <p><span className="font-medium">Email:</span> {user?.email || '---'}</p>
-                <p><span className="font-medium">Điện thoại:</span> {user?.phone || '---'}</p>
-                <p><span className="font-medium">Địa chỉ:</span> {user?.address || order.address || '---'}</p>
+              <h2 className="text-lg font-semibold mb-4">Thông tin người nhận</h2>
+              <div className="space-y-3">
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Tên:</span>
+                  <span className="text-gray-700">{order.receiverName}</span>
+                </p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Email:</span>
+                  <span className="text-gray-700">{order.receiverEmail}</span>
+                </p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Điện thoại:</span>
+                  <span className="text-gray-700">{order.receiverPhone}</span>
+                </p>
+                <p className="flex items-start">
+                  <span className="font-medium w-32">Địa chỉ:</span>
+                  <span className="text-gray-700">{order.receiverAddress}</span>
+                </p>
               </div>
             </div>
             <div>
               <h2 className="text-lg font-semibold mb-4">Thông tin đơn hàng</h2>
-              <div className="space-y-2">
-                <p><span className="font-medium">Ngày đặt:</span> {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''}</p>
-                <p>
-                  <span className="font-medium">Trạng thái:</span>{' '}
-                  <span className={`px-2 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
+              <div className="space-y-3">
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Ngày đặt:</span>
+                  <span className="text-gray-700">{formatDate(order.createdAt)}</span>
+                </p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Cập nhật:</span>
+                  <span className="text-gray-700">{formatDate(order.updatedAt)}</span>
+                </p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Trạng thái:</span>
+                  <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(order.status)}`}>
                     {getStatusText(order.status)}
                   </span>
                 </p>
-                <p><span className="font-medium">Tổng tiền:</span> {formatCurrency(order.total)}</p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Thanh toán:</span>
+                  <span className="text-gray-700">{order.paymentStatus}</span>
+                </p>
+                <p className="flex items-center">
+                  <span className="font-medium w-32">Tổng tiền:</span>
+                  <span className="text-purple-600 font-semibold">{formatCurrency(order.total)}</span>
+                </p>
               </div>
             </div>
           </div>
@@ -151,10 +205,11 @@ const OrderDetail = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {(order.items || order.orderItems || []).map((item, idx) => (
-                  <tr key={item.id || idx}>
+                {(order.orderItems || []).map((item, idx) => (
+                  <tr key={item.id || idx} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{item.name || `Sản phẩm #${item.productId}`}</div>
+                      <div className="text-sm font-medium text-gray-900">Sản phẩm #{item.productId}</div>
+                      <div className="text-sm text-gray-500">Size #{item.sizeId}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatCurrency(item.price)}</div>
@@ -163,7 +218,7 @@ const OrderDetail = () => {
                       <div className="text-sm text-gray-900">{item.quantity}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{formatCurrency(item.total || (item.price * item.quantity))}</div>
+                      <div className="text-sm font-medium text-purple-600">{formatCurrency(item.price * item.quantity)}</div>
                     </td>
                   </tr>
                 ))}
@@ -180,11 +235,19 @@ const OrderDetail = () => {
           >
             Hủy
           </button>
-          <button
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-          >
-            Cập nhật trạng thái
-          </button>
+          {order?.status === 'Đang xử lý' && (
+            <button
+              onClick={handleUpdateStatus}
+              disabled={updating}
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                updating
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+            >
+              {updating ? 'Đang cập nhật...' : 'Xác nhận đơn hàng'}
+            </button>
+          )}
         </div>
       </div>
     </div>

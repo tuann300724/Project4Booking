@@ -24,6 +24,7 @@ import OrderDetailUser from "./pages/OrderDetailUser";
 import EditProduct from "./pages/admin/EditProduct";
 import UserOrders from "./pages/UserOrders";
 import UserOrderDetail from "./pages/UserOrderDetail";
+import UserProfile from "./pages/UserProfile";
 import PaymentDetail from "./pages/admin/PaymentDetail";
 import UserDetail from "./pages/admin/UserDetail";
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
@@ -47,6 +48,7 @@ function App() {
               <Route path="cart" element={<Card />} />
               <Route path="checkout" element={<Checkout />} />
               {/* <Route path="orderslist" element={<OrderList />} /> */}
+              <Route path="user/profile" element={<UserProfile />} />
               <Route path="user/orders" element={<UserOrders />} />
               <Route path="order-success" element={<OrderSuccess />} />
               {/* <Route path="orderslist/:id" element={<OrderDetailUser />} /> */}

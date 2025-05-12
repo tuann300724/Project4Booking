@@ -74,8 +74,7 @@ const Checkout = () => {
     const orderData = {
       userId: userId || 1, // Use user ID if available, otherwise fallback to 1
       total: calculateTotal(),
-     
-      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Momo',
+      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'VNPay',
       receiverName: formData.fullName,
       receiverEmail: formData.email,
       receiverPhone: formData.phone,
@@ -89,8 +88,28 @@ const Checkout = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData)
       });
+      
       if (res.ok) {
         const order = await res.json();
+        
+        if (formData.paymentMethod === 'vnpay') {
+          // Get VNPay payment URL
+          const paymentRes = await fetch(`http://localhost:8080/api/orders/${order.id}/payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (paymentRes.ok) {
+            const paymentData = await paymentRes.json();
+            // Redirect to VNPay payment page
+            window.location.href = paymentData.paymentUrl;
+            return;
+          } else {
+            alert('Không thể tạo thanh toán VNPay. Vui lòng thử lại sau!');
+            return;
+          }
+        }
+        
         localStorage.setItem('lastOrder', JSON.stringify(order));
         clearCart();
         navigate('/order-success');
@@ -110,7 +129,7 @@ const Checkout = () => {
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Thanh toán</h1>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-4 border-b">Thông tin giao hàng</h2>
@@ -189,7 +208,7 @@ const Checkout = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
                 >
                   <option value="cod">Thanh toán bằng tiền mặt (COD)</option>
-                  <option value="momo">Ví MoMo</option>
+                  <option value="vnpay">VNPay</option>
                 </select>
               </div>
 
@@ -209,9 +228,9 @@ const Checkout = () => {
                 {cart.map((item) => (
                   <div key={`${item.id}-${item.size}`} className="flex items-center">
                     <div className="relative w-16 h-16 flex-shrink-0">
-                      <img 
-                        src={item.image} 
-                        alt={item.name} 
+                      <img
+                        src={item.image}
+                        alt={item.name}
                         className="w-full h-full object-cover rounded-lg shadow-sm"
                         onError={(e) => {
                           e.target.onerror = null;

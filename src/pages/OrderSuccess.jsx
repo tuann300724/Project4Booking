@@ -49,9 +49,9 @@ const OrderSuccess = () => {
           <div className="bg-gray-50 rounded-lg p-6 mb-8">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin đơn hàng</h2>
             <div className="space-y-2 text-sm text-gray-600">
-              <p>Mã đơn hàng: <span className="font-medium text-gray-800">#{order.id}</span></p>
+              <p>Mã đơn hàng: <span className="font-medium text-gray-800">#{order.orderCode}</span></p>
               <p>Ngày đặt: <span className="font-medium text-gray-800">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''}</span></p>
-              <p>Trạng thái: <span className="font-medium text-green-600">{order.status}</span></p>
+              <p>Trạng thái: <span className="font-medium text-yellow-600">{order.status}</span></p>
               <p>Tổng tiền: <span className="font-medium text-purple-600">{order.total?.toLocaleString('vi-VN')}đ</span></p>
               <p>Phương thức thanh toán: <span className="font-medium">{order.paymentStatus}</span></p>
             </div>

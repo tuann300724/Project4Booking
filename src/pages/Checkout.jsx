@@ -74,8 +74,8 @@ const Checkout = () => {
     const orderData = {
       userId: userId || 1, // Use user ID if available, otherwise fallback to 1
       total: calculateTotal(),
-      status: 'Chưa thanh toán',
-      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Đã thanh toán',
+     
+      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Momo',
       receiverName: formData.fullName,
       receiverEmail: formData.email,
       receiverPhone: formData.phone,

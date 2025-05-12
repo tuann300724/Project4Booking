@@ -1,15 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const OrderSuccess = () => {
   const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
-    const lastOrder = localStorage.getItem('lastOrder');
-    if (lastOrder) {
-      setOrder(JSON.parse(lastOrder));
-    }
-  }, []);
+    const fetchOrderDetails = async () => {
+      try {
+        // Get order ID from URL params
+        const params = new URLSearchParams(location.search);
+        const orderId = params.get('vnp_TxnRef');
+        
+        // Try to get order from localStorage first
+        const lastOrder = localStorage.getItem('lastOrder');
+        if (lastOrder) {
+          const parsedOrder = JSON.parse(lastOrder);
+          setOrder(parsedOrder);
+          
+          // If we have orderId from VNPay, fetch latest order status
+          if (orderId) {
+            const response = await fetch(`http://localhost:8080/api/orders/${orderId}`);
+            if (response.ok) {
+              const orderData = await response.json();
+              setOrder(orderData);
+              localStorage.setItem('lastOrder', JSON.stringify(orderData));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching order:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrderDetails();
+  }, [location]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Đang tải thông tin đơn hàng...</div>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
@@ -55,7 +91,6 @@ const OrderSuccess = () => {
               <p>Tổng tiền: <span className="font-medium text-purple-600">{order.total?.toLocaleString('vi-VN')}đ</span></p>
               <p>Phương thức thanh toán: <span className="font-medium">{order.paymentStatus}</span></p>
             </div>
-           
           </div>
 
           <div className="space-y-4">

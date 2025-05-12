@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiEdit2, FiTrash2, FiPlus, FiSearch, FiEye } from 'react-icons/fi';
+import { FiEdit2, FiTrash2, FiPlus, FiSearch, FiEye, FiMail, FiPhone } from 'react-icons/fi';
 
 const Users = () => {
   const navigate = useNavigate();
@@ -8,65 +8,35 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Giả lập dữ liệu người dùng
   useEffect(() => {
-    const mockUsers = [
-      {
-        id: 1,
-        name: 'Nguyễn Văn A',
-        email: 'nguyenvana@example.com',
-        phone: '0123456789',
-        role: 'Admin',
-        status: 'Hoạt động',
-      },
-      {
-        id: 2,
-        name: 'Trần Thị B',
-        email: 'tranthib@example.com',
-        phone: '0987654321',
-        role: 'User',
-        status: 'Hoạt động',
-      },
-      {
-        id: 3,
-        name: 'Lê Văn C',
-        email: 'levanc@example.com',
-        phone: '0123987456',
-        role: 'User',
-        status: 'Khóa',
-      },
-    ];
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/users');
+        const data = await response.json();
+        setUsers(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        setLoading(false);
+      }
+    };
 
-    setUsers(mockUsers);
-    setLoading(false);
+    fetchUsers();
   }, []);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Hoạt động':
-        return 'bg-green-100 text-green-800';
-      case 'Khóa':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getRoleName = (roleId) => {
+    return roleId === 1 ? 'Admin' : 'User';
   };
 
-  const getRoleColor = (role) => {
-    switch (role) {
-      case 'Admin':
-        return 'bg-purple-100 text-purple-800';
-      case 'User':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+  const getRoleColor = (roleId) => {
+    return roleId === 1 ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800';
   };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.phone.includes(searchTerm)
+    user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.phone?.includes(searchTerm) ||
+    user.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -80,19 +50,21 @@ const Users = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 space-y-4 md:space-y-0">
-        <h1 className="text-3xl font-bold text-gray-800">Quản lý người dùng</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Quản lý người dùng</h1>
+          <p className="text-gray-600 mt-2">Tổng số người dùng: {users.length}</p>
+        </div>
         <div className="flex space-x-4">
           <div className="relative">
             <input
               type="text"
-              placeholder="Tìm kiếm..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Tìm kiếm theo tên, email, số điện thoại..."
+              className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <FiSearch className="absolute left-3 top-3 text-gray-400" />
           </div>
-         
         </div>
       </div>
 
@@ -105,7 +77,7 @@ const Users = () => {
                   ID
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Tên
+                  Họ và tên
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Email
@@ -117,9 +89,6 @@ const Users = () => {
                   Vai trò
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                  Trạng thái
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Thao tác
                 </th>
               </tr>
@@ -128,45 +97,55 @@ const Users = () => {
               {filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-150">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    #{user.id}
+                    <span className="px-2 py-1 bg-gray-100 rounded-full text-gray-700">#{user.id}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 flex-shrink-0">
+                        <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                          <span className="text-purple-600 font-medium text-lg">
+                            {user.username?.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                        <div className="text-sm text-gray-500">{user.fullName}</div>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.name}
+                    <div className="flex items-center">
+                      <FiMail className="text-gray-400 mr-2" />
+                      {user.email}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.phone}
+                    <div className="flex items-center">
+                      <FiPhone className="text-gray-400 mr-2" />
+                      {user.phone || 'Chưa cập nhật'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
-                        user.role
-                      )}`}
+                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.role.id === 1 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}
                     >
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                        user.status
-                      )}`}
-                    >
-                      {user.status}
+                      {getRoleName(user.role.id)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex space-x-3">
                       <button
                         onClick={() => navigate(`/admin/users/${user.id}`)}
-                        className="text-blue-600 hover:text-blue-900 transition-colors duration-200 flex items-center space-x-1"
+                        className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition duration-150"
                       >
-                        <FiEye className="w-4 h-4" />
-                        <span>Xem</span>
+                        <FiEye className="mr-2" />
+                        Xem chi tiết
                       </button>
-                    
                     </div>
                   </td>
                 </tr>

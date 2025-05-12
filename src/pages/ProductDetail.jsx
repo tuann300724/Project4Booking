@@ -42,6 +42,22 @@ const ProductDetail = () => {
   }, [id]);
 
   const handleQuantityChange = (value) => {
+    // Find the selected size's stock
+    const selectedSizeInfo = product.productSizes.find(
+      sizeInfo => getSizeLabel(sizeInfo.id.sizeId) === selectedSize
+    );
+
+    if (!selectedSizeInfo) {
+      alert('Vui lòng chọn kích thước trước');
+      return;
+    }
+
+    if (value > selectedSizeInfo.stock) {
+      alert(`Chỉ còn ${selectedSizeInfo.stock} sản phẩm trong kho`);
+      setQuantity(selectedSizeInfo.stock);
+      return;
+    }
+
     if (value >= 1) {
       setQuantity(value);
     }
@@ -107,6 +123,17 @@ const ProductDetail = () => {
   const handleAddToCart = () => {
     if (!selectedSize) {
       alert('Vui lòng chọn kích thước');
+      return;
+    }
+
+    // Check stock again before adding to cart
+    const selectedSizeInfo = product.productSizes.find(
+      sizeInfo => getSizeLabel(sizeInfo.id.sizeId) === selectedSize
+    );
+
+    if (quantity > selectedSizeInfo.stock) {
+      alert(`Chỉ còn ${selectedSizeInfo.stock} sản phẩm trong kho`);
+      setQuantity(selectedSizeInfo.stock);
       return;
     }
 

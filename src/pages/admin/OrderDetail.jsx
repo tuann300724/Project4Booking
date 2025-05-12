@@ -73,7 +73,7 @@ const OrderDetail = () => {
   const handleUpdateStatus = async () => {
     if (!order) return;
     
-    const paymentMethod = order.paymentStatus === 'Thanh toán khi nhận hàng' ? 'cash' : 'momo';
+    const paymentMethod = order.paymentStatus === 'Thanh toán khi nhận hàng' ? 'cash' : 'vnpay';
     
     try {
       setUpdating(true);

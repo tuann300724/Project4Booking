@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useCart } from '../context/CartContext';
 import AuthModal from './AuthModal';
 import PromoWheel from './PromoWheel';
 
@@ -15,13 +16,15 @@ const Header = () => {
     openRegisterModal, 
     closeAuthModal 
   } = useUser();
+  const { cart, getTotalItems } = useCart();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isPromoWheelOpen, setIsPromoWheelOpen] = useState(false);
+  
+  // Calculate total items in cart
+  const totalItems = getTotalItems();
 
   // Debug - check login status
   useEffect(() => {
-    console.log('Login status:', isLoggedIn);
-    console.log('User data:', user);
   }, [isLoggedIn, user]);
 
   const toggleDropdown = () => setIsDropdownOpen(!isDropdownOpen);
@@ -56,6 +59,18 @@ const Header = () => {
               <Link to="/contact" className="text-gray-700 hover:text-purple-600">
                 Liên hệ
               </Link>
+              {isLoggedIn && (
+                <button
+                  onClick={openPromoWheel}
+                  className="text-gray-700 hover:text-purple-600 flex items-center"
+                >
+                  <span>Vòng quay may mắn</span>
+                  <svg className="w-5 h-5 ml-1 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.5a1 1 0 102 0V5zm-2 4a1 1 0 112 0 1 1 0 01-2 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
             </nav>
 
             {/* User Actions */}
@@ -75,10 +90,12 @@ const Header = () => {
                     d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" 
                   />
                 </svg>
-                {/* Cart count badge - replace with actual cart count */}
-                <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  0
-                </span>
+                {/* Cart count badge */}
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                    {totalItems}
+                  </span>
+                )}
               </Link>
 
               {/* Auth Buttons or User Menu */}
@@ -118,18 +135,19 @@ const Header = () => {
                         Tài khoản
                       </Link>
                       <Link
+                        to="/user/vouchers"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        onClick={closeDropdown}
+                      >
+                        Mã giảm giá của tôi
+                      </Link>
+                      <Link
                         to="/user/orders"
                         className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                         onClick={closeDropdown}
                       >
                         Đơn hàng của tôi
                       </Link>
-                      <button
-                        onClick={openPromoWheel}
-                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
-                      >
-                        Khuyến mãi
-                      </button>
                       {/* Admin link if user has admin role */}
                       {user.role === 1 && (
                         <Link

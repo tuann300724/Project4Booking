@@ -16,7 +16,6 @@ export const getAllProducts = async () => {
         const response = await api.get('/products');
         return response.data;
     } catch (error) {
-        console.error('Error fetching products:', error);
         throw error;
     }
 };
@@ -27,7 +26,6 @@ export const getProductById = async (productId) => {
         const response = await api.get(`/products/${productId}`);
         return response.data;
     } catch (error) {
-        console.error('Error fetching product details:', error);
         throw error;
     }
 };
@@ -38,7 +36,6 @@ export const getAllSizes = async () => {
         const response = await api.get('/sizes');
         return response.data;
     } catch (error) {
-        console.error('Error fetching sizes:', error);
         throw error;
     }
 };
@@ -48,7 +45,6 @@ export const getRelatedProducts = async (categoryId, currentProductId) => {
         const response = await api.get(`/products/related/${categoryId}`);
         return response.data.filter(product => product.id !== currentProductId).slice(0, 4);
     } catch (error) {
-        console.error('Error fetching related products:', error);
         return [];
     }
 };
@@ -57,10 +53,9 @@ export const getRelatedProducts = async (categoryId, currentProductId) => {
 export const validateDiscountCode = async (code) => {
     try {
         const response = await api.get(`/discounts/validate/${code}`);
-        console.log("AA", response.data);
         return response.data;
     } catch (error) {
-        console.error('Error validating discount code:', error);
+        error('Error validating discount code:', error);
         throw error;
     }
 }; 

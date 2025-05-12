@@ -22,7 +22,6 @@ export const UserProvider = ({ children }) => {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
-        console.error('Error parsing user from localStorage:', error);
       }
     }
   }, []);

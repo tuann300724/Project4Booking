@@ -6,8 +6,6 @@ const Navbar = () => {
   const { cart, getTotalItems } = useCart();
   
   const totalItems = getTotalItems();
-  console.log('Navbar - Cart data:', cart);
-  console.log('Navbar - Total items:', totalItems);
 
   return (
     <nav className="bg-white shadow-lg">

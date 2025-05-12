@@ -150,8 +150,6 @@ const ProductDetail = () => {
     };
 
     addToCart(productToAdd);
-    alert('Đã thêm vào giỏ hàng!');
-    navigate('/cart');
   };
 
   const getSizeLabel = (sizeId) => {
@@ -187,7 +185,6 @@ const ProductDetail = () => {
       </div>
     );
   }
-  console.log(relatedProducts);
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="container mx-auto px-4">

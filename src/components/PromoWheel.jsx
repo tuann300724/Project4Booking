@@ -190,10 +190,8 @@ const PromoWheel = ({ isOpen, onClose, userId = 3 }) => {
       }
       
       setSaveStatus('success');
-      console.log('Voucher saved successfully', await response.json());
     } catch (error) {
       setSaveStatus('error');
-      console.error('Error saving voucher:', error);
     }
   };
 

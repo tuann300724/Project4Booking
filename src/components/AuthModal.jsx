@@ -106,7 +106,7 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         {!isLoginMode && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tên đăng nhập
+              Họ và tên
             </label>
             <input
               type="text"

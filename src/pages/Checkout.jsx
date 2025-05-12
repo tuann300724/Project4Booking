@@ -31,6 +31,38 @@ const Checkout = () => {
     fetchSizes();
   }, []);
 
+  // Tự động điền thông tin người dùng nếu đã đăng nhập
+  useEffect(() => {
+    const populateUserData = () => {
+      let currentUser = user;
+      
+      // Nếu không có user trong context, thử lấy từ localStorage
+      if (!currentUser) {
+        try {
+          const savedUser = localStorage.getItem('user');
+          if (savedUser) {
+            currentUser = JSON.parse(savedUser);
+          }
+        } catch (err) {
+          console.error('Error parsing user from localStorage:', err);
+        }
+      }
+      
+      // Nếu có thông tin user, điền vào form
+      if (currentUser) {
+        setFormData(prev => ({
+          ...prev,
+          fullName: currentUser.username || currentUser.full_name || '',
+          email: currentUser.email || '',
+          phone: currentUser.phone || '',
+          address: currentUser.address ? currentUser.address.split(',')[0] || '' : '',
+        }));
+      }
+    };
+    
+    populateUserData();
+  }, [user]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -186,18 +218,7 @@ const Checkout = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Thành phố</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
-                  placeholder="Tên thành phố"
-                />
-              </div>
+             
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Phương thức thanh toán</label>

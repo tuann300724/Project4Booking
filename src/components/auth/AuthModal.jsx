@@ -19,7 +19,6 @@ const AuthModal = ({ isOpen, onClose }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Xử lý đăng nhập/đăng ký ở đây
-    console.log('Form submitted:', formData);
   };
 
   if (!isOpen) return null;

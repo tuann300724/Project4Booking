@@ -27,6 +27,7 @@ import UserOrderDetail from "./pages/UserOrderDetail";
 import UserProfile from "./pages/UserProfile";
 import PaymentDetail from "./pages/admin/PaymentDetail";
 import UserDetail from "./pages/admin/UserDetail";
+import UserVouchers from "./pages/UserVouchers";
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -47,6 +48,7 @@ function App() {
               <Route path="contact" element={<Contact />} />
               <Route path="cart" element={<Card />} />
               <Route path="checkout" element={<Checkout />} />
+              <Route path="user/vouchers" element={<UserVouchers />} />
               {/* <Route path="orderslist" element={<OrderList />} /> */}
               <Route path="user/profile" element={<UserProfile />} />
               <Route path="user/orders" element={<UserOrders />} />

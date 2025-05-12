@@ -44,7 +44,6 @@ const Checkout = () => {
             currentUser = JSON.parse(savedUser);
           }
         } catch (err) {
-          console.error('Error parsing user from localStorage:', err);
         }
       }
       
@@ -99,7 +98,6 @@ const Checkout = () => {
           userId = parsedUser.id;
         }
       } catch (error) {
-        console.error('Error parsing user from localStorage:', error);
       }
     }
 

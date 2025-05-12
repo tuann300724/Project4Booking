@@ -190,10 +190,8 @@ const PromoWheel = ({ isOpen, onClose, userId = 3 }) => {
       }
       
       setSaveStatus('success');
-      console.log('Voucher saved successfully', await response.json());
     } catch (error) {
       setSaveStatus('error');
-      console.error('Error saving voucher:', error);
     }
   };
 
@@ -214,7 +212,7 @@ const PromoWheel = ({ isOpen, onClose, userId = 3 }) => {
     // Determine winning prize with weighted probability
     // 80% chance for "Chúc bạn may mắn lần sau", 20% for other prizes
     let prizeIndex;
-    if (Math.random() < 0.8) {
+    if (Math.random() < 0.1) {
       // 80% chance to get "Chúc bạn may mắn lần sau"
       prizeIndex = BETTER_LUCK_INDEX;
     } else {

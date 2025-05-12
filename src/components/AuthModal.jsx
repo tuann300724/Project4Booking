@@ -32,7 +32,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     
     try {
       const response = await axios.post('http://localhost:8080/api/users/login', { email, password });
-      console.log('Login successful:', response.data);
       
       // Store user info in localStorage AND update context
       localStorage.setItem('user', JSON.stringify(response.data));
@@ -43,7 +42,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         onClose();
       }, 1000);
     } catch (err) {
-      console.error('Login error:', err);
       setError(err.response?.data || 'Đăng nhập thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
@@ -61,7 +59,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         email, 
         password 
       });
-      console.log('Registration successful:', response.data);
       
       setSuccessMsg('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
       setTimeout(() => {
@@ -70,7 +67,6 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
         setSuccessMsg('');
       }, 2000);
     } catch (err) {
-      console.error('Registration error:', err);
       setError(err.response?.data || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);

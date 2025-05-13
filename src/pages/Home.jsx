@@ -1,7 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 
 const Home = () => {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+        } else {
+          console.error('Failed to fetch categories');
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Settings for the slider
+  const sliderSettings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 3,
+    slidesToScroll: 1,
+    autoplay: true,
+    autoplaySpeed: 3000,
+    responsive: [
+      {
+        breakpoint: 1024,
+        settings: {
+          slidesToShow: 2,
+          slidesToScroll: 1,
+        }
+      },
+      {
+        breakpoint: 640,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1
+        }
+      }
+    ]
+  };
+
+  // Category image mapping - you can replace these with actual category images
+  const categoryImages = {
+    'Áo': 'https://images.unsplash.com/photo-1562157873-818bc0726f68?q=80&w=800&auto=format&fit=crop',
+    'Quần': 'https://images.unsplash.com/photo-1604176354204-9268737828e4?q=80&w=800&auto=format&fit=crop',
+    'Giày': 'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=800&auto=format&fit=crop',
+    'Phụ kiện': 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=800&auto=format&fit=crop',
+    'default': 'https://placehold.co/800x600?text=Category'
+  };
+
   return (
     <div className="bg-white">
       {/* Hero Section */}
@@ -25,31 +87,44 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Categories Section */}
+      {/* Categories Slider Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
             Danh Mục Nổi Bật
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {['Áo', 'Quần', 'Phụ kiện'].map((category) => (
-              <div
-                key={category}
-                className="relative h-80 rounded-lg overflow-hidden group cursor-pointer"
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-6 text-white">
-                  <h3 className="text-2xl font-semibold mb-2">{category}</h3>
-                  <p className="text-sm opacity-90">Khám phá ngay</p>
-                </div>
-                <img
-                  src={`https://placehold.co/800x600?${category}`}
-                  alt={category}
-                  className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                />
-              </div>
-            ))}
-          </div>
+          
+          {loading ? (
+            <div className="flex justify-center items-center h-80">
+              <div className="w-12 h-12 border-4 border-t-purple-600 border-gray-200 rounded-full animate-spin"></div>
+            </div>
+          ) : (
+            <div className="category-slider px-4">
+              <Slider {...sliderSettings}>
+                {categories.map((category) => (
+                  <div key={category.id} className="px-2">
+                    <Link to={`/products?category=${category.id}`}>
+                      <div className="relative h-80 rounded-lg overflow-hidden group cursor-pointer transition duration-300 transform hover:shadow-xl hover:-translate-y-1">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10" />
+                        <img
+                          src={categoryImages[category.name] || categoryImages.default}
+                          alt={category.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
+                        />
+                        <div className="absolute bottom-0 left-0 p-6 text-white z-20">
+                          <h3 className="text-2xl font-semibold mb-2">{category.name}</h3>
+                          <div className="w-0 group-hover:w-full h-1 bg-purple-500 transition-all duration-300"></div>
+                          <p className="text-sm opacity-0 group-hover:opacity-100 transition duration-300 mt-2">
+                            Khám phá ngay
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
+              </Slider>
+            </div>
+          )}
         </div>
       </section>
 

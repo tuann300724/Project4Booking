@@ -60,6 +60,21 @@ const OrderSuccess = () => {
     }
   }, [location.search, voucherProcessed]);
 
+  // Kiểm tra xem đơn hàng có phải thanh toán bằng COD không
+  const isCODPayment = () => {
+    if (!order) return false;
+    return order.paymentStatus === 'Thanh toán khi nhận hàng';
+  };
+
+  // Lấy trạng thái thanh toán tương ứng với phương thức thanh toán
+  const getPaymentStatusText = () => {
+    if (isCODPayment()) {
+      return { text: 'Chờ thanh toán', color: 'text-yellow-600' };
+    } else {
+      return { text: 'Đã thanh toán', color: 'text-green-600' };
+    }
+  };
+
   if (!order) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12">
@@ -105,6 +120,8 @@ const OrderSuccess = () => {
     return 'https://placehold.co/200x200?text=No+Image';
   };
 
+  const paymentStatus = getPaymentStatusText();
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4">
@@ -123,7 +140,7 @@ const OrderSuccess = () => {
             </div>
 
             <div className="border-t border-b py-4 mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin đơn hàng #{order.orderCode}</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">Thông tin đơn hàng #{order.orderCode || order.id}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -137,7 +154,7 @@ const OrderSuccess = () => {
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Thông tin thanh toán</h3>
                   <p className="text-gray-800">Phương thức: <span className="font-medium">{order.paymentStatus}</span></p>
                   <p className="text-gray-800">Tổng tiền: <span className="font-medium text-purple-600">{formatCurrency(order.total)}</span></p>
-                  <p className="text-gray-800">Trạng thái: <span className="font-medium text-green-600">Đã thanh toán</span></p>
+                  <p className="text-gray-800">Trạng thái: <span className={`font-medium ${paymentStatus.color}`}>{paymentStatus.text}</span></p>
                 </div>
               </div>
             </div>
@@ -172,7 +189,7 @@ const OrderSuccess = () => {
                 </div>
               ))}
               
-              <div className="pt-4">
+              <div className="border-t pt-4">
                 <div className="flex justify-between text-base font-medium text-gray-800">
                   <p>Tổng cộng</p>
                   <p>{formatCurrency(order.total)}</p>

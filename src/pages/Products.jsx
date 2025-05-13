@@ -1,47 +1,109 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getAllProducts, getAllSizes } from '../api/productService';
 
 const Products = () => {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const categoryId = queryParams.get('category');
+
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [sizes, setSizes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // State cho filters
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(categoryId || '');
   const [priceRange, setPriceRange] = useState([0, 1000000]);
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [sortBy, setSortBy] = useState('newest');
 
-  // Fetch products and sizes
+  // Fetch categories
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchCategories = async () => {
       try {
-        const [productsData, sizesData] = await Promise.all([
-          getAllProducts(),
-          getAllSizes()
-        ]);
+        const response = await fetch('http://localhost:8080/api/categories');
+        if (response.ok) {
+          const data = await response.json();
+          setCategories(data);
+          
+          // Nếu có categoryId trong URL, đặt selectedCategory thành category tương ứng
+          if (categoryId && data.length > 0) {
+            const category = data.find(cat => cat.id.toString() === categoryId);
+            if (category) {
+              setSelectedCategory(category.name);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    };
+    
+    fetchCategories();
+  }, [categoryId]);
+
+  // Fetch products based on category
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        let productsData;
+        
+        if (selectedCategoryId) {
+          // Fetch products by category
+          const response = await fetch(`http://localhost:8080/api/products/category/${selectedCategoryId}`);
+          if (response.ok) {
+            productsData = await response.json();
+          } else {
+            throw new Error('Failed to fetch products by category');
+          }
+        } else {
+          // Fetch all products
+          productsData = await getAllProducts();
+        }
+        
         setProducts(productsData);
-        setSizes(sizesData);
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching products:', err);
         setError('Đã có lỗi xin vui lòng thử lại');
         setLoading(false);
       }
     };
 
-    fetchData();
+    fetchProducts();
+  }, [selectedCategoryId]);
+
+  // Fetch sizes
+  useEffect(() => {
+    const fetchSizes = async () => {
+      try {
+        const sizesData = await getAllSizes();
+        setSizes(sizesData);
+      } catch (err) {
+        console.error('Error fetching sizes:', err);
+      }
+    };
+
+    fetchSizes();
   }, []);
+
+  // Handle category selection
+  const handleCategorySelect = (category, id) => {
+    setSelectedCategory(category);
+    setSelectedCategoryId(id.toString());
+  };
 
   // Filter products based on selected filters
   const filteredProducts = products.filter(product => {
-    const matchesCategory = !selectedCategory || (product.category && product.category.name === selectedCategory);
+    // Bỏ lọc theo danh mục vì đã lọc bằng API
     const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
     const matchesSize = selectedSizes.length === 0 || 
       product.productSizes?.some(ps => selectedSizes.includes(ps.id.sizeId.toString()));
-    return matchesCategory && matchesPrice && matchesSize;
+    return matchesPrice && matchesSize;
   });
 
   // Sort products
@@ -59,7 +121,7 @@ const Products = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+        <div className="w-12 h-12 border-4 border-t-purple-600 border-gray-200 rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -84,20 +146,27 @@ const Products = () => {
             <div className="mb-6">
               <h3 className="font-medium mb-3">Danh mục</h3>
               <div className="space-y-2">
-                {Array.from(new Set(products
-                  .filter(p => p.category)
-                  .map(p => p.category.name)
-                )).map((category) => (
-                  <div key={category}>
+                <div>
+                  <button
+                    onClick={() => handleCategorySelect('', '')}
+                    className={`w-full text-left px-3 py-2 rounded-lg ${
+                      !selectedCategory ? 'bg-purple-100 text-purple-600' : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    Tất cả sản phẩm
+                  </button>
+                </div>
+                {categories.map((category) => (
+                  <div key={category.id}>
                     <button
-                      onClick={() => setSelectedCategory(category)}
+                      onClick={() => handleCategorySelect(category.name, category.id)}
                       className={`w-full text-left px-3 py-2 rounded-lg ${
-                        selectedCategory === category
+                        selectedCategory === category.name
                           ? 'bg-purple-100 text-purple-600'
                           : 'hover:bg-gray-100'
                       }`}
                     >
-                      {category}
+                      {category.name}
                     </button>
                   </div>
                 ))}
@@ -157,7 +226,7 @@ const Products = () => {
             <div className="bg-white rounded-lg shadow-md p-4 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">
-                  Hiển thị {sortedProducts.length} sản phẩm
+                  Hiển thị {sortedProducts.length} sản phẩm {selectedCategory && `trong ${selectedCategory}`}
                 </span>
                 <select
                   value={sortBy}
@@ -172,64 +241,80 @@ const Products = () => {
             </div>
 
             {/* Products Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {sortedProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden group"
-                >
-                  <div className="relative h-48">
-                    <img
-                      src={product.productImages && product.productImages.length > 0 
-                        ? `http://localhost:8080${product.productImages[0].imageUrl}`
-                        : 'https://placehold.co/400x500?text=No+Image'}
-                      alt={product.name}
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
-                      <Link
-                        to={`/products/${product.id}`}
-                        className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300"
-                      >
-                        Xem chi tiết
-                      </Link>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                      {product.name}
-                    </h3>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-600 font-bold">
-                          {product.price.toLocaleString()}đ
-                        </span>
-                        <button className="text-gray-600 hover:text-purple-600">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {product.productSizes
-                          .filter(sizeInfo => sizeInfo.stock > 0)
-                          .map(sizeInfo => (
-                            <span
-                              key={sizeInfo.id.sizeId}
-                              className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full"
-                            >
-                              {sizeInfo.id.sizeId === 1 ? 'S' :
-                               sizeInfo.id.sizeId === 2 ? 'M' :
-                               sizeInfo.id.sizeId === 3 ? 'X' :
-                               sizeInfo.id.sizeId === 4 ? 'XL'  : sizeInfo.id.sizeId}
-                            </span>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
+            {sortedProducts.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                <div className="text-gray-400 mb-4">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M12 16h.01M12 13a4 4 0 100-8 4 4 0 000 8z" />
+                  </svg>
                 </div>
-              ))}
-            </div>
+                <h2 className="text-xl font-semibold mb-2">Không tìm thấy sản phẩm</h2>
+                <p className="text-gray-600">Không có sản phẩm nào phù hợp với bộ lọc đã chọn.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {sortedProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-lg shadow-md overflow-hidden group"
+                  >
+                    <div className="relative h-48">
+                      <img
+                        src={product.productImages && product.productImages.length > 0 
+                          ? `http://localhost:8080${product.productImages[0].imageUrl}`
+                          : 'https://placehold.co/400x500?text=No+Image'}
+                        alt={product.name}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = 'https://placehold.co/400x500?text=No+Image';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                        <Link
+                          to={`/products/${product.id}`}
+                          className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300"
+                        >
+                          Xem chi tiết
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                        {product.name}
+                      </h3>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-600 font-bold">
+                            {product.price.toLocaleString()}đ
+                          </span>
+                          <button className="text-gray-600 hover:text-purple-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {product.productSizes && product.productSizes
+                            .filter(sizeInfo => sizeInfo.stock > 0)
+                            .map(sizeInfo => (
+                              <span
+                                key={sizeInfo.id.sizeId}
+                                className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full"
+                              >
+                                {sizeInfo.id.sizeId === 1 ? 'S' :
+                                 sizeInfo.id.sizeId === 2 ? 'M' :
+                                 sizeInfo.id.sizeId === 3 ? 'X' :
+                                 sizeInfo.id.sizeId === 4 ? 'XL'  : sizeInfo.id.sizeId}
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

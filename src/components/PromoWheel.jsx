@@ -228,7 +228,9 @@ const PromoWheel = ({ isOpen, onClose, userId = 3 }) => {
     // Each segment is 360 / prizes.length degrees
     // We add some extra rotations for effect (5 full rotations)
     const segmentAngle = 360 / prizes.length;
-    const targetAngle = 360 * 5 + (360 - (prizeIndex * segmentAngle));
+    // Fix alignment by centering the segment under the pointer
+    // Add half of the segment angle to center it properly
+    const targetAngle = 360 * 5 + (360 - (prizeIndex * segmentAngle) - (segmentAngle / 2));
     
     // Set the rotation
     setWheelRotation(targetAngle);

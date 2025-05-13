@@ -208,6 +208,11 @@ const UserVouchers = () => {
                             <span className={`ml-3 px-2 py-1 text-xs font-medium rounded-full ${status.color}`}>
                               {status.text}
                             </span>
+                            {voucher.countCode > 0 && (
+                              <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                Còn {voucher.countCode} lần dùng
+                              </span>
+                            )}
                           </div>
                           
                           <div className="flex items-center mb-4 bg-gray-100 p-3 rounded-lg">
@@ -215,7 +220,7 @@ const UserVouchers = () => {
                             <button 
                               onClick={() => copyToClipboard(voucher.code)}
                               className="ml-3 bg-purple-600 text-white text-sm px-2 py-1 rounded hover:bg-purple-700"
-                              disabled={voucher.used || timeLeft[voucher.id]?.expired}
+                              disabled={voucher.used || timeLeft[voucher.id]?.expired || voucher.countCode === 0}
                             >
                               Sao chép
                             </button>

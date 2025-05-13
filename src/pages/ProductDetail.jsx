@@ -274,7 +274,7 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Discount Code */}
+              {/* Discount Code
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-4">Mã giảm giá</h2>
                 {product.discount ? (
@@ -306,7 +306,7 @@ const ProductDetail = () => {
                 ) : (
                   <p className="text-gray-500 text-sm">Sản phẩm này không áp dụng mã giảm giá</p>
                 )}
-              </div>
+              </div> */}
 
               {/* Price Display */}
               <div>

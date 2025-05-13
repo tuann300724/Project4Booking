@@ -28,6 +28,7 @@ import UserProfile from "./pages/UserProfile";
 import PaymentDetail from "./pages/admin/PaymentDetail";
 import UserDetail from "./pages/admin/UserDetail";
 import UserVouchers from "./pages/UserVouchers";
+import VNPayReturn from './pages/VNPayReturn';
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -55,6 +56,7 @@ function App() {
               <Route path="order-success" element={<OrderSuccess />} />
               {/* <Route path="orderslist/:id" element={<OrderDetailUser />} /> */}
               <Route path="user/orders/:id" element={<UserOrderDetail />} />
+              <Route path="payment/vnpay/return" element={<VNPayReturn />} />
             </Route>
 
             <Route path="/admin" element={<AdminLayout />}>

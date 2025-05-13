@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { getAllSizes } from '../api/productService';
+import { getAllSizes, validateDiscountCode } from '../api/productService';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
   const { user } = useUser();
   const navigate = useNavigate();
   const [sizes, setSizes] = useState([]);
+  const [discountCode, setDiscountCode] = useState('');
+  const [discountError, setDiscountError] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [isUserVoucher, setIsUserVoucher] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -54,7 +58,7 @@ const Checkout = () => {
           fullName: currentUser.username || currentUser.full_name || '',
           email: currentUser.email || '',
           phone: currentUser.phone || '',
-          address: currentUser.address ? currentUser.address.split(',')[0] || '' : '',
+          address: currentUser.address || '',
         }));
       }
     };
@@ -68,6 +72,65 @@ const Checkout = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) {
+      setDiscountError('Vui lòng nhập mã giảm giá');
+      return;
+    }
+
+    try {
+      // First try product discount
+      const discount = await validateDiscountCode(discountCode);
+      setAppliedDiscount(discount);
+      setIsUserVoucher(false);
+      setDiscountError('');
+    } catch (err) {
+      // If product discount fails, try user voucher
+      if (user?.id) {
+        try {
+          const response = await fetch(`http://localhost:8080/api/vouchers/use?userId=${user.id}&code=${discountCode}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const voucher = await response.json();
+            setAppliedDiscount(voucher);
+            setIsUserVoucher(true);
+            setDiscountError('');
+          } else {
+            const errorData = await response.text();
+            setDiscountError(errorData);
+            setAppliedDiscount(null);
+          }
+        } catch (voucherErr) {
+          setDiscountError('Không thể kiểm tra mã giảm giá. Vui lòng thử lại.');
+          setAppliedDiscount(null);
+        }
+      } else {
+        setDiscountError('Bạn cần đăng nhập để sử dụng mã giảm giá cá nhân');
+        setAppliedDiscount(null);
+      }
+    }
+  };
+
+  const calculateDiscountedTotal = () => {
+    const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    
+    if (!appliedDiscount) return subtotal;
+
+    const discountType = appliedDiscount.discount_type || appliedDiscount.discountType;
+    const discountValue = appliedDiscount.discount_value || appliedDiscount.discountValue;
+
+    if (discountType === 'percentage') {
+      return subtotal * (1 - discountValue / 100);
+    } else {
+      return Math.max(0, subtotal - discountValue);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -103,13 +166,15 @@ const Checkout = () => {
 
     const orderData = {
       userId: userId || 1,
-      total: calculateTotal(),
+      total: calculateDiscountedTotal(),
       paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'VNPay',
       receiverName: formData.fullName,
       receiverEmail: formData.email,
       receiverPhone: formData.phone,
       receiverAddress: `${formData.address}, ${formData.city}`,
-      orderItems
+      orderItems,
+      discountCode: appliedDiscount?.code,
+      isUserVoucher: isUserVoucher
     };
 
     try {
@@ -140,6 +205,15 @@ const Checkout = () => {
       
       if (!order || !order.id || !order.total) {
         throw new Error('Dữ liệu đơn hàng không hợp lệ');
+      }
+
+      // For VNPay, we'll decrease voucher count after payment is successful
+      // Store voucher info in localStorage to use it after payment return
+      if (isUserVoucher && appliedDiscount?.code && user?.id) {
+        localStorage.setItem('pendingVoucher', JSON.stringify({
+          userId: user.id,
+          code: appliedDiscount.code
+        }));
       }
 
       // Get VNPay payment URL
@@ -185,6 +259,20 @@ const Checkout = () => {
       }
 
       const order = await res.json();
+      
+      // For COD, payment is considered successful upon order creation
+      // Decrease voucher count if user voucher was applied
+      if (isUserVoucher && appliedDiscount?.code && user?.id) {
+        try {
+          await fetch(`http://localhost:8080/api/vouchers/decrease?userId=${user.id}&code=${appliedDiscount.code}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (voucherErr) {
+          console.error('Error decreasing voucher count:', voucherErr);
+        }
+      }
+      
       localStorage.setItem('lastOrder', JSON.stringify(order));
       clearCart();
       navigate('/order-success');
@@ -311,6 +399,37 @@ const Checkout = () => {
                     </div>
                   </div>
                 ))}
+
+                {/* Discount Code Section */}
+                <div className="pt-4 border-t">
+                  <div className="mb-4">
+                    <h3 className="text-md font-semibold text-gray-800 mb-2">Mã giảm giá</h3>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={discountCode}
+                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                        placeholder="Nhập mã giảm giá"
+                        className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleApplyDiscount}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
+                      >
+                        Áp dụng
+                      </button>
+                    </div>
+                    {discountError && (
+                      <p className="mt-2 text-red-600 text-sm">{discountError}</p>
+                    )}
+                    {appliedDiscount && (
+                      <p className="mt-2 text-green-600 text-sm">
+                        Đã áp dụng {isUserVoucher ? 'voucher' : 'mã giảm giá'}: {appliedDiscount.code}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="border-t pt-4 mt-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-gray-600">
@@ -321,9 +440,19 @@ const Checkout = () => {
                       <span>Phí vận chuyển:</span>
                       <span className="text-green-600">Miễn phí</span>
                     </div>
+                    {appliedDiscount && (
+                      <div className="flex justify-between text-gray-600">
+                        <span>Giảm giá:</span>
+                        <span className="text-green-600">
+                          {(calculateTotal() - calculateDiscountedTotal()).toLocaleString('vi-VN')}đ
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-lg font-semibold text-gray-800 pt-2 border-t">
                       <span>Tổng cộng:</span>
-                      <span className="text-purple-600">{calculateTotal().toLocaleString('vi-VN')}đ</span>
+                      <span className="text-purple-600">
+                        {(appliedDiscount ? calculateDiscountedTotal() : calculateTotal()).toLocaleString('vi-VN')}đ
+                      </span>
                     </div>
                   </div>
                 </div>

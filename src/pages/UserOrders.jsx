@@ -177,7 +177,7 @@ const UserOrders = () => {
                   <div className="p-6">
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h2 className="text-lg font-medium text-gray-900">Đơn hàng #{order.id}</h2>
+                        <h2 className="text-lg font-medium text-gray-900">Đơn hàng #{order.orderCode}</h2>
                         <p className="text-sm text-gray-600 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
                       </div>
                       <div>

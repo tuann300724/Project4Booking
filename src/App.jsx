@@ -29,6 +29,7 @@ import PaymentDetail from "./pages/admin/PaymentDetail";
 import UserDetail from "./pages/admin/UserDetail";
 import UserVouchers from "./pages/UserVouchers";
 import VNPayReturn from './pages/VNPayReturn';
+import ProductForm from "./pages/admin/ProductForm";
 // Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
 // import About from "./pages/About";
 // import Contact from "./pages/Contact";
@@ -65,7 +66,7 @@ function App() {
               <Route path="orders/:id" element={<OrderDetail />} />
               <Route path="users/:id" element={<UserDetail />} />
               <Route path="products" element={<AdminProducts />} />
-              {/* <Route path="products/new" element={<ProductForm />} /> */}
+              <Route path="products/new" element={<ProductForm />} />
               <Route path="payments/:id" element={<PaymentDetail />} />
               <Route path="products/edit/:id" element={<EditProduct />} />
               <Route path="users" element={<Users />} />

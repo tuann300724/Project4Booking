@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiX, FiUpload } from 'react-icons/fi';
+import { FiX, FiUpload, FiRefreshCw } from 'react-icons/fi';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import axios from 'axios';
 
@@ -23,8 +23,10 @@ const ProductForm = () => {
       { size: 'XL', quantity: 0 }
     ]
   });
+  const [formattedPrice, setFormattedPrice] = useState('');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Lưu trữ object URLs để cleanup
   const [objectUrls, setObjectUrls] = useState([]);
@@ -39,10 +41,11 @@ const ProductForm = () => {
 
   useEffect(() => {
     if (isEditMode) {
+      const initialPrice = '250000';
       setFormData({
         name: 'Áo thun nam',
         category: '1', // Giả lập id
-        price: '250000',
+        price: initialPrice,
         description: 'Áo thun nam chất liệu cotton',
         images: [
           { url: 'https://placehold.co/400x400', file: null },
@@ -56,6 +59,7 @@ const ProductForm = () => {
           { size: 'XL', quantity: 5 }
         ]
       });
+      setFormattedPrice(formatCurrency(initialPrice));
     }
   }, [id]);
 
@@ -72,6 +76,34 @@ const ProductForm = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+  // Format currency value
+  const formatCurrency = (value) => {
+    if (!value) return '';
+    
+    // Remove any non-digit characters
+    const numericValue = value.toString().replace(/\D/g, '');
+    
+    // Format with thousand separators
+    return new Intl.NumberFormat('vi-VN').format(numericValue);
+  };
+
+  // Handle price input change
+  const handlePriceChange = (e) => {
+    const inputValue = e.target.value;
+    
+    // Remove formatted characters and get pure number
+    const numericValue = inputValue.replace(/\D/g, '');
+    
+    // Update the actual price value in state
+    setFormData(prev => ({
+      ...prev,
+      price: numericValue
+    }));
+    
+    // Update the formatted display value
+    setFormattedPrice(formatCurrency(numericValue));
   };
 
   const handleSizeQuantityChange = (size, value) => {
@@ -161,6 +193,49 @@ const ProductForm = () => {
     }
   };
 
+  const generateDescription = async () => {
+    // Kiểm tra xem có tên sản phẩm và hình ảnh chưa
+    if (!formData.name) {
+      alert('Vui lòng nhập tên sản phẩm trước khi tạo mô tả');
+      return;
+    }
+    
+    if (formData.images.length === 0 || !formData.images[0].file) {
+      alert('Vui lòng tải lên ít nhất một hình ảnh để tạo mô tả');
+      return;
+    }
+    
+    try {
+      setIsGeneratingDescription(true);
+      
+      // Tạo FormData để gửi lên API
+      const descriptionForm = new FormData();
+      descriptionForm.append('name', formData.name);
+      descriptionForm.append('image', formData.images[0].file);
+      
+      // Gọi API để tạo mô tả
+      const response = await axios.post(
+        'http://localhost:8080/api/generate-detailed-description',
+        descriptionForm,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+      
+      // Cập nhật mô tả trong form
+      setFormData(prev => ({
+        ...prev,
+        description: response.data
+      }));
+      
+    } catch (error) {
+      console.error('Lỗi khi tạo mô tả:', error);
+      alert('Không thể tạo mô tả tự động. Vui lòng thử lại sau hoặc nhập mô tả thủ công.');
+    } finally {
+      setIsGeneratingDescription(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
@@ -204,20 +279,50 @@ const ProductForm = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Giá (VNĐ)
             </label>
-            <input
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              required
-            />
+            <div className="relative">
+              <input
+                type="text"
+                name="price"
+                value={formattedPrice}
+                onChange={handlePriceChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                required
+                placeholder="0"
+              />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                đ
+              </span>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mô tả
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Mô tả
+              </label>
+              <button
+                type="button"
+                onClick={generateDescription}
+                disabled={isGeneratingDescription || !formData.name || formData.images.length === 0}
+                className={`flex items-center text-sm px-3 py-1 rounded ${
+                  isGeneratingDescription || !formData.name || formData.images.length === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {isGeneratingDescription ? (
+                  <>
+                    <FiRefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                    Đang tạo...
+                  </>
+                ) : (
+                  <>
+                    <FiRefreshCw className="w-4 h-4 mr-1" />
+                    Tạo mô tả AI
+                  </>
+                )}
+              </button>
+            </div>
             <textarea
               name="description"
               value={formData.description}
@@ -226,6 +331,11 @@ const ProductForm = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               required
             ></textarea>
+            <p className="mt-1 text-sm text-gray-500">
+              {formData.name && formData.images.length > 0 ? 
+                'Nhấn "Tạo mô tả AI" để tạo mô tả tự động từ tên và hình ảnh sản phẩm' : 
+                'Nhập tên sản phẩm và tải ảnh lên để sử dụng tính năng tạo mô tả tự động'}
+            </p>
           </div>
 
           <div>

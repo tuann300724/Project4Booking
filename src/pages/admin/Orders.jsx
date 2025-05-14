@@ -184,7 +184,7 @@ const Orders = () => {
                   <tr key={order.id} className="border-t hover:bg-purple-50 transition">
                     <td className="py-2 px-3 font-medium">#{order.orderCode}</td>
                     <td className="py-2 px-3">
-                      {users[order.userId]?.fullName || users[order.userId]?.name || `User #${order.userId}`}
+                      {order.receiverName || 'Khách hàng'}
                     </td>
                     <td className="py-2 px-3">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ''}</td>
                     <td className="py-2 px-3 text-purple-600 font-semibold">{formatCurrency(order.total)}</td>

@@ -122,7 +122,7 @@ const AdminProducts = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">#{product.id}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-semibold text-gray-900">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.description}</div>
+                        {/* <div className="text-sm text-gray-500">{product.description}</div> */}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.category.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap">

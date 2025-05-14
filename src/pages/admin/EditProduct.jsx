@@ -50,12 +50,18 @@ const EditProduct = () => {
         });
         // Set images - productImages is already an array of image objects
         if (product.productImages && Array.isArray(product.productImages)) {
-          setImages(product.productImages.map(img => ({
-            id: img.id,
-            url: `http://localhost:8080${img.imageUrl}`,
-            file: null,
-            imageUrl: img.imageUrl
-          })));
+          const productImages = product.productImages.map(img => {
+            console.log("Loading existing image:", img);
+            return {
+              id: img.id,                            // Numeric ID from database
+              url: `http://localhost:8080${img.imageUrl}`,
+              imageUrl: img.imageUrl,
+              file: null,                            // No file for existing images
+              isExisting: true                       // Flag to mark this as existing
+            };
+          });
+          setImages(productImages);
+          console.log(`Loaded ${productImages.length} existing images`);
         }
         // Set form data
         setFormData({
@@ -94,21 +100,44 @@ const EditProduct = () => {
     }));
   };
 
-  // Upload nhiều hình, thêm vào images state
+  // Xử lý khi tải lên hình ảnh mới
   const handleImageUpload = (e) => {
+    e.preventDefault();
     const files = Array.from(e.target.files);
-    const newImages = files.map(file => ({
-      id: `new-${file.name}-${Date.now()}`,
-      url: URL.createObjectURL(file),
-      file,
-      imageUrl: null
-    }));
+    if (files.length === 0) return;
+    
+    console.log(`Processing ${files.length} new image files`);
+    
+    const newImages = files.map(file => {
+      // Generate a temporary id using timestamp and random string
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      console.log(`Created new image with temp ID: ${tempId} from file: ${file.name}`);
+      return {
+        id: tempId,  // Temporary ID for new files
+        url: URL.createObjectURL(file),
+        file: file,
+        isNew: true
+      };
+    });
+    
     setImages(prev => [...prev, ...newImages]);
+    // Reset file input
+    e.target.value = null;
   };
 
   // Xóa hình khỏi images state
-  const handleRemoveImage = (index) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveImage = (indexToRemove) => {
+    setImages(prev => {
+      const imageToRemove = prev[indexToRemove];
+      console.log(`Removing image at index ${indexToRemove}`, imageToRemove);
+      
+      // If this is a URL from an existing image, revoke it
+      if (imageToRemove.url && imageToRemove.url.startsWith('blob:')) {
+        URL.revokeObjectURL(imageToRemove.url);
+      }
+      
+      return prev.filter((_, index) => index !== indexToRemove);
+    });
   };
 
   // Kéo thả sắp xếp hình ảnh
@@ -124,6 +153,7 @@ const EditProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setUploading(true);
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
       formDataToSend.append('description', formData.description);
@@ -131,47 +161,38 @@ const EditProduct = () => {
       formDataToSend.append('categoryId', formData.categoryId);
 
       // Tách riêng hình cũ và mới
-      const existingImages = images.filter(img => img.id && img.imageUrl);
+      const existingImages = images.filter(img => img.id && typeof img.id === 'number');
       const newImages = images.filter(img => img.file);
+      
+      console.log('Existing images before submission:', existingImages);
+      console.log('New images before submission:', newImages);
 
-      // Chuyển hình cũ thành file
-      const existingImageFiles = await Promise.all(
-        existingImages.map(async (img) => {
-          try {
-            const response = await fetch(img.url);
-            const blob = await response.blob();
-            return new File([blob], img.imageUrl.split('/').pop(), { type: blob.type });
-          } catch (error) {
-            console.error('Error converting existing image to file:', error);
-            return null;
+      // Gửi thông tin về các ảnh cũ (chỉ cần gửi ID)
+      if (existingImages.length > 0) {
+        const existingImageIds = existingImages.map(img => img.id);
+        formDataToSend.append('existingImageIds', JSON.stringify(existingImageIds));
+        console.log('Existing image IDs:', JSON.stringify(existingImageIds));
+      } else {
+        // Nếu không có ảnh cũ nào, gửi một mảng rỗng để backend biết là xóa tất cả ảnh cũ
+        formDataToSend.append('existingImageIds', JSON.stringify([]));
+        console.log('No existing images to keep, sending empty array');
+      }
+
+      // Thêm các file mới vào form data
+      if (newImages.length > 0) {
+        newImages.forEach((img, index) => {
+          if (img.file) {
+            formDataToSend.append('images', img.file);
+            console.log(`Adding new image #${index} named ${img.file.name} to form data`);
           }
-        })
-      );
-
-      // Gửi tất cả hình ảnh (cả cũ và mới)
-      [...existingImageFiles, ...newImages.map(img => img.file)].forEach((file, index) => {
-        if (file) {
-          formDataToSend.append('images', file);
-        }
-      });
-
-      // Gửi thông tin thứ tự hình ảnh
-      const imageOrder = [
-        ...existingImages.map((img, index) => ({
-          id: img.id,
-          order: index
-        })),
-        ...newImages.map((_, index) => ({
-          order: existingImages.length + index
-        }))
-      ];
-      formDataToSend.append('imageOrder', JSON.stringify(imageOrder));
+        });
+      }
 
       // Log để debug
       console.log('FormData contents:');
       for (let pair of formDataToSend.entries()) {
         if (pair[0] === 'images') {
-          console.log(pair[0] + ': [File]');
+          console.log(pair[0] + ': [File ' + pair[1].name + ']');
         } else {
           console.log(pair[0] + ': ' + pair[1]);
         }
@@ -186,10 +207,7 @@ const EditProduct = () => {
             'Content-Type': 'multipart/form-data',
             'Accept': 'application/json'
           },
-          timeout: 30000,
-          validateStatus: function (status) {
-            return status >= 200 && status < 300;
-          }
+          timeout: 60000, // Tăng timeout lên 60 giây
         }
       );
 
@@ -197,13 +215,18 @@ const EditProduct = () => {
 
       // 2. Cập nhật số lượng size
       for (const size of sizes) {
-        const newStock = (formData.productSizes.find(ps => ps.sizeId === size.id)?.stock) || 0;
-        const oldStock = 0; // Không cần so sánh cũ mới ở đây
-        const adjustment = newStock - oldStock;
-        if (adjustment !== 0) {
+        const sizeId = size.id;
+        const newStock = (formData.productSizes.find(ps => ps.sizeId === sizeId)?.stock) || 0;
+        
+        try {
           await axios.put(
-            `http://localhost:8080/api/product-sizes/product/${id}/size/${size.id}/adjust-stock?adjustment=${adjustment}`
+            `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock`,
+            { stock: newStock },
+            { headers: { 'Content-Type': 'application/json' } }
           );
+          console.log(`Updated stock for size ${sizeId} to ${newStock}`);
+        } catch (sizeError) {
+          console.error(`Error updating size ${sizeId}:`, sizeError);
         }
       }
 
@@ -211,7 +234,10 @@ const EditProduct = () => {
       navigate('/admin/products');
     } catch (error) {
       console.error('Error updating product:', error);
-      alert('Có lỗi xảy ra khi cập nhật sản phẩm. Vui lòng thử lại.');
+      console.error('Error response:', error.response?.data);
+      alert('Có lỗi xảy ra khi cập nhật sản phẩm: ' + (error.response?.data || error.message));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -412,14 +438,24 @@ const EditProduct = () => {
               type="button"
               onClick={() => navigate('/admin/products')}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              disabled={uploading}
             >
               Hủy
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200"
+              className={`px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200 flex items-center ${uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={uploading}
             >
-              Lưu thay đổi
+              {uploading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Đang lưu...
+                </>
+              ) : 'Lưu thay đổi'}
             </button>
           </div>
         </form>

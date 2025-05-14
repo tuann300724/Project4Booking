@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { FiX, FiUpload } from 'react-icons/fi';
 
 const EditProduct = () => {
   const { id } = useParams();
@@ -9,7 +11,7 @@ const EditProduct = () => {
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
   const [sizes, setSizes] = useState([]);
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState([]); // [{id, url, file, imageUrl}]
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -17,14 +19,12 @@ const EditProduct = () => {
     price: '',
     categoryId: '',
     productSizes: [],
-    discount: {
-      code: '',
-      discountType: 'percentage',
-      discountValue: '',
-      startDate: '',
-      endDate: ''
-    }
   });
+
+  // Debug: log images array whenever it changes
+  useEffect(() => {
+    console.log('Current images array:', images);
+  }, [images]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,37 +33,37 @@ const EditProduct = () => {
         // Fetch product data
         const productResponse = await axios.get(`http://localhost:8080/api/products/${id}`);
         const product = productResponse.data;
-        
         // Fetch categories
         const categoriesResponse = await axios.get('http://localhost:8080/api/categories');
         setCategories(categoriesResponse.data);
-
         // Fetch sizes
         const sizesResponse = await axios.get('http://localhost:8080/api/sizes');
-        setSizes(sizesResponse.data);
-
+        const allSizes = sizesResponse.data;
+        setSizes(allSizes);
+        // Fetch productSizes (stock theo size) từ API riêng
+        const productSizesRes = await axios.get(`http://localhost:8080/api/product-sizes/product/${id}`);
+        const productSizesFromApi = productSizesRes.data; // [{sizeId, stock}]
+        // Map đủ các size, nếu thiếu thì stock = 0
+        const productSizes = allSizes.map(size => {
+          const found = productSizesFromApi.find(ps => ps.sizeId === size.id);
+          return found ? { sizeId: size.id, stock: found.stock } : { sizeId: size.id, stock: 0 };
+        });
         // Set images - productImages is already an array of image objects
         if (product.productImages && Array.isArray(product.productImages)) {
-          setImages(product.productImages);
+          setImages(product.productImages.map(img => ({
+            id: img.id,
+            url: `http://localhost:8080${img.imageUrl}`,
+            file: null,
+            imageUrl: img.imageUrl
+          })));
         }
-
         // Set form data
         setFormData({
           name: product.name,
           description: product.description,
           price: product.price,
           categoryId: product.category.id,
-          productSizes: product.productSizes.map(ps => ({
-            sizeId: ps.id.sizeId,
-            stock: ps.stock
-          })),
-          discount: product.discount || {
-            code: '',
-            discountType: 'percentage',
-            discountValue: '',
-            startDate: '',
-            endDate: ''
-          }
+          productSizes,
         });
       } catch (err) {
         setError('Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.');
@@ -72,7 +72,6 @@ const EditProduct = () => {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [id]);
 
@@ -87,151 +86,105 @@ const EditProduct = () => {
   const handleSizeChange = (sizeId, value) => {
     setFormData(prev => ({
       ...prev,
-      productSizes: prev.productSizes.map(ps => 
-        ps.sizeId === sizeId ? { ...ps, stock: parseInt(value) || 0 } : ps
+      productSizes: prev.productSizes.map(ps =>
+        ps.sizeId === sizeId
+          ? { ...ps, stock: value === '' ? 0 : parseInt(value) || 0 }
+          : ps
       )
     }));
   };
 
-  const handleDiscountChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      discount: {
-        ...prev.discount,
-        [name]: value
-      }
-    }));
-  };
-
-  const handleImageUpload = async (e) => {
+  // Upload nhiều hình, thêm vào images state
+  const handleImageUpload = (e) => {
     const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      files.forEach(file => {
-        formData.append('files', file);
-      });
-
-      const response = await axios.post(
-        `http://localhost:8080/api/products/${id}/upload-images`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-          timeout: 30000,
-          validateStatus: function (status) {
-            return status >= 200 && status < 300;
-          }
-        }
-      );
-
-      if (response.data && Array.isArray(response.data)) {
-        // Add new images to the existing ones
-        setImages(prev => [...prev, ...response.data]);
-      } else {
-        throw new Error('Invalid response format from server');
-      }
-    } catch (err) {
-      let errorMessage = 'Không thể tải lên hình ảnh. ';
-      
-      if (err.code === 'ERR_NETWORK') {
-        errorMessage += 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
-      } else if (err.response) {
-        errorMessage += `Lỗi từ máy chủ: ${err.response.data?.message || err.response.statusText}`;
-      } else if (err.request) {
-        errorMessage += 'Không nhận được phản hồi từ máy chủ.';
-      } else {
-        errorMessage += err.message;
-      }
-      
-      setError(errorMessage);
-      console.error('Error uploading images:', err);
-    } finally {
-      setUploading(false);
-    }
+    const newImages = files.map(file => ({
+      id: `new-${file.name}-${Date.now()}`,
+      url: URL.createObjectURL(file),
+      file,
+      imageUrl: null
+    }));
+    setImages(prev => [...prev, ...newImages]);
   };
 
-  const handleDeleteImage = async (imageId) => {
-    try {
-      const response = await axios.delete(
-        `http://localhost:8080/api/products/${id}/images/${imageId}`,
-        {
-          validateStatus: function (status) {
-            return status >= 200 && status < 300;
-          }
-        }
-      );
-
-      if (response.status === 200 || response.status === 204) {
-        setImages(prev => prev.filter(img => img.id !== imageId));
-      } else {
-        throw new Error('Failed to delete image');
-      }
-    } catch (err) {
-      let errorMessage = 'Không thể xóa hình ảnh. ';
-      
-      if (err.code === 'ERR_NETWORK') {
-        errorMessage += 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
-      } else if (err.response) {
-        errorMessage += `Lỗi từ máy chủ: ${err.response.data?.message || err.response.statusText}`;
-      } else if (err.request) {
-        errorMessage += 'Không nhận được phản hồi từ máy chủ.';
-      } else {
-        errorMessage += err.message;
-      }
-      
-      setError(errorMessage);
-      console.error('Error deleting image:', err);
-    }
+  // Xóa hình khỏi images state
+  const handleRemoveImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Kéo thả sắp xếp hình ảnh
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+    const reordered = Array.from(images);
+    const [removed] = reordered.splice(result.source.index, 1);
+    reordered.splice(result.destination.index, 0, removed);
+    setImages(reordered);
+  };
+
+  // Xử lý submit: upload hình mới, gửi thông tin sản phẩm, cập nhật thứ tự hình ảnh
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       const formDataToSend = new FormData();
-      
-      // Add basic product information
       formDataToSend.append('name', formData.name);
       formDataToSend.append('description', formData.description);
       formDataToSend.append('price', formData.price.toString());
-
-      // Add category ID
       formDataToSend.append('categoryId', formData.categoryId);
 
-      // Add product sizes if any
-      if (formData.productSizes && formData.productSizes.length > 0) {
-        formData.productSizes.forEach((size, index) => {
-          formDataToSend.append(`productSizes[${index}].sizeId`, size.sizeId);
-          formDataToSend.append(`productSizes[${index}].stock`, size.stock);
-        });
-      }
+      // Tách riêng hình cũ và mới
+      const existingImages = images.filter(img => img.id && img.imageUrl);
+      const newImages = images.filter(img => img.file);
 
-      // Add discount information if exists
-      if (formData.discount) {
-        if (formData.discount.code) formDataToSend.append('discount.code', formData.discount.code);
-        if (formData.discount.discountValue) formDataToSend.append('discount.discountValue', formData.discount.discountValue);
-        if (formData.discount.startDate) formDataToSend.append('discount.startDate', formData.discount.startDate);
-        if (formData.discount.endDate) formDataToSend.append('discount.endDate', formData.discount.endDate);
-      }
+      // Chuyển hình cũ thành file
+      const existingImageFiles = await Promise.all(
+        existingImages.map(async (img) => {
+          try {
+            const response = await fetch(img.url);
+            const blob = await response.blob();
+            return new File([blob], img.imageUrl.split('/').pop(), { type: blob.type });
+          } catch (error) {
+            console.error('Error converting existing image to file:', error);
+            return null;
+          }
+        })
+      );
 
-      // Add any new images
-      const fileInput = document.querySelector('input[type="file"]');
-      if (fileInput && fileInput.files.length > 0) {
-        Array.from(fileInput.files).forEach(file => {
+      // Gửi tất cả hình ảnh (cả cũ và mới)
+      [...existingImageFiles, ...newImages.map(img => img.file)].forEach((file, index) => {
+        if (file) {
           formDataToSend.append('images', file);
-        });
+        }
+      });
+
+      // Gửi thông tin thứ tự hình ảnh
+      const imageOrder = [
+        ...existingImages.map((img, index) => ({
+          id: img.id,
+          order: index
+        })),
+        ...newImages.map((_, index) => ({
+          order: existingImages.length + index
+        }))
+      ];
+      formDataToSend.append('imageOrder', JSON.stringify(imageOrder));
+
+      // Log để debug
+      console.log('FormData contents:');
+      for (let pair of formDataToSend.entries()) {
+        if (pair[0] === 'images') {
+          console.log(pair[0] + ': [File]');
+        } else {
+          console.log(pair[0] + ': ' + pair[1]);
+        }
       }
 
+      // Gửi update product
       const response = await axios.put(
         `http://localhost:8080/api/products/${id}`,
         formDataToSend,
         {
-          headers: {
+          headers: { 
             'Content-Type': 'multipart/form-data',
+            'Accept': 'application/json'
           },
           timeout: 30000,
           validateStatus: function (status) {
@@ -240,28 +193,25 @@ const EditProduct = () => {
         }
       );
 
-      if (response.data) {
-        // Update local state with the response data
-        setImages(response.data.productImages || []);
-        navigate('/admin/products');
-      } else {
-        throw new Error('Invalid response from server');
+      console.log('Server response:', response.data);
+
+      // 2. Cập nhật số lượng size
+      for (const size of sizes) {
+        const newStock = (formData.productSizes.find(ps => ps.sizeId === size.id)?.stock) || 0;
+        const oldStock = 0; // Không cần so sánh cũ mới ở đây
+        const adjustment = newStock - oldStock;
+        if (adjustment !== 0) {
+          await axios.put(
+            `http://localhost:8080/api/product-sizes/product/${id}/size/${size.id}/adjust-stock?adjustment=${adjustment}`
+          );
+        }
       }
-    } catch (err) {
-      let errorMessage = 'Không thể cập nhật sản phẩm. ';
-      
-      if (err.code === 'ERR_NETWORK') {
-        errorMessage += 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
-      } else if (err.response) {
-        errorMessage += `Lỗi từ máy chủ: ${err.response.data?.message || err.response.statusText}`;
-      } else if (err.request) {
-        errorMessage += 'Không nhận được phản hồi từ máy chủ.';
-      } else {
-        errorMessage += err.message;
-      }
-      
-      setError(errorMessage);
-      console.error('Error updating product:', err);
+
+      alert('Cập nhật sản phẩm thành công!');
+      navigate('/admin/products');
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert('Có lỗi xảy ra khi cập nhật sản phẩm. Vui lòng thử lại.');
     }
   };
 
@@ -364,50 +314,75 @@ const EditProduct = () => {
                 </select>
               </div>
 
-              {/* Image Upload Section */}
+              {/* Image Upload Section - kéo thả */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hình ảnh sản phẩm</label>
                 <div className="mt-2">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {images.map((image) => (
-                      <div key={image.id} className="relative group">
-                        <img
-                          src={`http://localhost:8080${image.imageUrl}`}
-                          alt={`Product ${image.id}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteImage(image.id)}
-                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
+                  <div className="flex items-center justify-center w-full mb-4">
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <FiUpload className="w-8 h-8 mb-2 text-gray-500" />
+                        <p className="mb-2 text-sm text-gray-500">
+                          <span className="font-semibold">Click để tải lên</span> hoặc kéo thả
+                        </p>
                       </div>
-                    ))}
-                    <label className="relative flex items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-purple-500 transition-colors duration-200">
                       <input
                         type="file"
+                        className="hidden"
                         multiple
                         accept="image/*"
                         onChange={handleImageUpload}
-                        className="hidden"
                         disabled={uploading}
                       />
-                      {uploading ? (
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-700"></div>
-                      ) : (
-                        <div className="text-center">
-                          <svg className="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          <span className="mt-1 block text-sm text-gray-500">Thêm ảnh</span>
-                        </div>
-                      )}
                     </label>
                   </div>
+                  <DragDropContext onDragEnd={handleDragEnd}>
+                    <Droppable droppableId="images" direction="horizontal">
+                      {(provided) => (
+                        <div
+                          {...provided.droppableProps}
+                          ref={provided.innerRef}
+                          className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                        >
+                          {images.map((img, index) => (
+                            <Draggable key={img.url} draggableId={img.url} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`relative group ${index === 0 ? 'col-span-2 row-span-2' : ''}`}
+                                >
+                                  <img
+                                    src={img.url}
+                                    alt={`Product ${index + 1}`}
+                                    className={`w-full object-cover rounded-lg ${index === 0 ? 'h-48' : 'h-32'}`}
+                                    style={{ background: '#eee' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage(index)}
+                                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                                  >
+                                    <FiX className="w-4 h-4" />
+                                  </button>
+                                  <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                    {index === 0 ? 'Ảnh bìa' : `Vị trí ${index + 1}`}
+                                  </div>
+                                  {index === 0 && (
+                                    <div className="absolute top-1 left-1 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                                      Ảnh chính
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 </div>
               </div>
             </div>
@@ -421,67 +396,13 @@ const EditProduct = () => {
                     <label className="w-24 text-sm font-medium text-gray-700">{size.name}</label>
                     <input
                       type="number"
-                      value={formData.productSizes.find(ps => ps.sizeId === size.id)?.stock || 0}
-                      onChange={(e) => handleSizeChange(size.id, e.target.value)}
+                      value={formData.productSizes.find(ps => ps.sizeId === size.id)?.stock ?? 0}
+                      onChange={e => handleSizeChange(size.id, e.target.value)}
                       className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
                       min="0"
                     />
                   </div>
                 ))}
-              </div>
-
-              {/* Discount Information */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin khuyến mãi</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mã khuyến mãi</label>
-                    <input
-                      type="text"
-                      name="code"
-                      value={formData.discount.code}
-                      onChange={handleDiscountChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Giá trị khuyến mãi (%)</label>
-                    <input
-                      type="number"
-                      name="discountValue"
-                      value={formData.discount.discountValue}
-                      onChange={handleDiscountChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                      min="0"
-                      max="100"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu</label>
-                      <input
-                        type="date"
-                        name="startDate"
-                        value={formData.discount.startDate}
-                        onChange={handleDiscountChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc</label>
-                      <input
-                        type="date"
-                        name="endDate"
-                        value={formData.discount.endDate}
-                        onChange={handleDiscountChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

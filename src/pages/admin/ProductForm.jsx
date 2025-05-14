@@ -326,21 +326,7 @@ const ProductForm = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trạng thái
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              required
-            >
-              <option value="in_stock">Còn hàng</option>
-              <option value="out_of_stock">Hết hàng</option>
-            </select>
-          </div>
+        
 
           <div className="flex justify-end space-x-4">
             <button

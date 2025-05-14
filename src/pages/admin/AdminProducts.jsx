@@ -108,7 +108,6 @@ const AdminProducts = () => {
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Giá</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tồn kho</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Khuyến mãi</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
@@ -128,11 +127,6 @@ const AdminProducts = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.category.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-purple-700 font-bold">{formatCurrency(product.price)}</div>
-                        {product.discount && (
-                          <div className="text-xs text-green-600">
-                            Giảm {product.discount.discountValue}%
-                          </div>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{totalStock}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -140,18 +134,7 @@ const AdminProducts = () => {
                           {status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {product.discount ? (
-                          <div className="text-sm">
-                            <div className="font-semibold text-purple-700">{product.discount.code}</div>
-                            <div className="text-xs text-gray-500">
-                              {formatDate(product.discount.startDate)} - {formatDate(product.discount.endDate)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">Không có</span>
-                        )}
-                      </td>
+                     
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <Link
                           to={`/admin/products/edit/${product.id}`}

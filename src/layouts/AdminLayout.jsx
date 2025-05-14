@@ -8,6 +8,7 @@ const AdminLayout = () => {
     { path: '/admin', label: 'Dashboard', icon: '📊' },
     { path: '/admin/orders', label: 'Đơn hàng', icon: '📦' },
     { path: '/admin/products', label: 'Sản phẩm', icon: '🛍️' },
+    { path: '/admin/discounts', label: 'Mã giảm giá', icon: '🏷️' },
     { path: '/admin/users', label: 'Người dùng', icon: '👥' },
     { path: '/admin/revenue', label: 'Doanh thu', icon: '💰' },
   ];

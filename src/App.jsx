@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { UserProvider } from './context/UserContext';
 import { CartProvider } from './context/CartContext';
+import { SnackbarProvider } from 'notistack';
 import MainLayout from "./components/layout/MainLayout";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
@@ -13,6 +14,7 @@ import Dashboard from './pages/admin/Dashboard';
 import Orders from './pages/admin/Orders';
 import OrderDetail from './pages/admin/OrderDetail';
 import AdminProducts from "./pages/admin/AdminProducts";
+import Discounts from "./pages/admin/Discounts";
 
 import Users from './pages/admin/Users';
 import Revenue from './pages/admin/Revenue';
@@ -36,45 +38,52 @@ import VNPayReturn from './pages/VNPayReturn';
 
 function App() {
   return (
-    <Router>
-      <UserProvider>
-        <CartProvider>
-          <Routes>
-            {/* Routes cho trang chủ */}
-            <Route path="/" element={<MainLayout />}>
-              <Route index element={<Home />} />
-              <Route path="products" element={<Products />} />
-              <Route path="products/:id" element={<ProductDetail />} />
-              <Route path="about" element={<About />} />
-              <Route path="contact" element={<Contact />} />
-              <Route path="cart" element={<Card />} />
-              <Route path="checkout" element={<Checkout />} />
-              <Route path="user/vouchers" element={<UserVouchers />} />
-              {/* <Route path="orderslist" element={<OrderList />} /> */}
-              <Route path="user/profile" element={<UserProfile />} />
-              <Route path="user/orders" element={<UserOrders />} />
-              <Route path="order-success" element={<OrderSuccess />} />
-              {/* <Route path="orderslist/:id" element={<OrderDetailUser />} /> */}
-              <Route path="user/orders/:id" element={<UserOrderDetail />} />
-              <Route path="payment/vnpay/return" element={<VNPayReturn />} />
-            </Route>
+    <SnackbarProvider 
+      maxSnack={3} 
+      autoHideDuration={3000}
+      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    >
+      <Router>
+        <UserProvider>
+          <CartProvider>
+            <Routes>
+              {/* Routes cho trang chủ */}
+              <Route path="/" element={<MainLayout />}>
+                <Route index element={<Home />} />
+                <Route path="products" element={<Products />} />
+                <Route path="products/:id" element={<ProductDetail />} />
+                <Route path="about" element={<About />} />
+                <Route path="contact" element={<Contact />} />
+                <Route path="cart" element={<Card />} />
+                <Route path="checkout" element={<Checkout />} />
+                <Route path="user/vouchers" element={<UserVouchers />} />
+                {/* <Route path="orderslist" element={<OrderList />} /> */}
+                <Route path="user/profile" element={<UserProfile />} />
+                <Route path="user/orders" element={<UserOrders />} />
+                <Route path="order-success" element={<OrderSuccess />} />
+                {/* <Route path="orderslist/:id" element={<OrderDetailUser />} /> */}
+                <Route path="user/orders/:id" element={<UserOrderDetail />} />
+                <Route path="payment/vnpay/return" element={<VNPayReturn />} />
+              </Route>
 
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="orders/:id" element={<OrderDetail />} />
-              <Route path="users/:id" element={<UserDetail />} />
-              <Route path="products" element={<AdminProducts />} />
-              {/* <Route path="products/new" element={<ProductForm />} /> */}
-              <Route path="payments/:id" element={<PaymentDetail />} />
-              <Route path="products/edit/:id" element={<EditProduct />} />
-              <Route path="users" element={<Users />} />
-              <Route path="revenue" element={<Revenue />} />
-            </Route>
-          </Routes>
-        </CartProvider>
-      </UserProvider>
-    </Router>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="orders/:id" element={<OrderDetail />} />
+                <Route path="users/:id" element={<UserDetail />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="discounts" element={<Discounts />} />
+                {/* <Route path="products/new" element={<ProductForm />} /> */}
+                <Route path="payments/:id" element={<PaymentDetail />} />
+                <Route path="products/edit/:id" element={<EditProduct />} />
+                <Route path="users" element={<Users />} />
+                <Route path="revenue" element={<Revenue />} />
+              </Route>
+            </Routes>
+          </CartProvider>
+        </UserProvider>
+      </Router>
+    </SnackbarProvider>
   );
 }
 

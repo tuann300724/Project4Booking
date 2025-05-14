@@ -13,6 +13,7 @@ const Checkout = () => {
   const [discountError, setDiscountError] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(null);
   const [isUserVoucher, setIsUserVoucher] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -135,6 +136,7 @@ const Checkout = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
     // Map size name sang id nếu cần
     const orderItems = cart.map(item => {
@@ -185,6 +187,8 @@ const Checkout = () => {
       }
     } catch (err) {
       alert('Lỗi kết nối server!');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -288,6 +292,17 @@ const Checkout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      {/* Loading Overlay */}
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-black/60 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
+            <div className="w-16 h-16 border-4 border-t-purple-600 border-gray-200 rounded-full animate-spin mb-4"></div>
+            <p className="text-lg font-medium text-gray-700">Đang xử lý đơn hàng...</p>
+            <p className="text-sm text-gray-500 mt-2">Vui lòng không đóng trang này.</p>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Thanh toán</h1>
 
@@ -362,9 +377,10 @@ const Checkout = () => {
 
               <button
                 type="submit"
-                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition duration-300 shadow-md hover:shadow-lg"
+                disabled={isSubmitting}
+                className={`w-full bg-purple-600 text-white py-3 rounded-lg transition duration-300 shadow-md hover:shadow-lg ${isSubmitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-purple-700'}`}
               >
-                Đặt hàng
+                {isSubmitting ? 'Đang xử lý...' : 'Đặt hàng'}
               </button>
             </form>
           </div>

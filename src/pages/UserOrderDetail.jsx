@@ -357,9 +357,9 @@ const UserOrderDetail = () => {
               </button>
             )}
 
-            <button className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors">
+            <Link to="https://zalo.me/0366523313" target="_blank" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors">
               Liên hệ hỗ trợ
-            </button>
+            </Link >
 
             {order.status === 'completed' && (
               <button className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">

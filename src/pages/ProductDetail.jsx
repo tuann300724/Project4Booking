@@ -4,6 +4,7 @@ import { getProductById, getRelatedProducts, validateDiscountCode } from '../api
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useSnackbar } from 'notistack';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -17,9 +18,11 @@ const ProductDetail = () => {
   const [discountError, setDiscountError] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(null);
   const [isUserVoucher, setIsUserVoucher] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const { addToCart } = useCart();
   const { user } = useUser();
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -40,6 +43,11 @@ const ProductDetail = () => {
 
     fetchProduct();
   }, [id]);
+
+  // Reset active image index when product changes
+  useEffect(() => {
+    setActiveImageIndex(0);
+  }, [product]);
 
   const handleQuantityChange = (value) => {
     // Find the selected size's stock
@@ -122,7 +130,10 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (!selectedSize) {
-      alert('Vui lòng chọn kích thước');
+      enqueueSnackbar('Vui lòng chọn kích thước', { 
+        variant: 'warning',
+        preventDuplicate: true
+      });
       return;
     }
 
@@ -132,7 +143,9 @@ const ProductDetail = () => {
     );
 
     if (quantity > selectedSizeInfo.stock) {
-      alert(`Chỉ còn ${selectedSizeInfo.stock} sản phẩm trong kho`);
+      enqueueSnackbar(`Chỉ còn ${selectedSizeInfo.stock} sản phẩm trong kho`, { 
+        variant: 'error' 
+      });
       setQuantity(selectedSizeInfo.stock);
       return;
     }
@@ -150,6 +163,22 @@ const ProductDetail = () => {
     };
 
     addToCart(productToAdd);
+    
+    enqueueSnackbar(`Đã thêm ${quantity} sản phẩm "${product.name}" vào giỏ hàng`, {
+      variant: 'success',
+      anchorOrigin: {
+        vertical: 'top',
+        horizontal: 'right',
+      },
+      action: (key) => (
+        <button 
+          onClick={() => navigate('/cart')} 
+          className="text-white font-medium underline"
+        >
+          Xem giỏ hàng
+        </button>
+      ),
+    });
   };
 
   const getSizeLabel = (sizeId) => {
@@ -160,6 +189,10 @@ const ProductDetail = () => {
       4: 'XL',
     };
     return sizeMap[sizeId] || sizeId;
+  };
+
+  const handleThumbnailClick = (index) => {
+    setActiveImageIndex(index);
   };
 
   if (loading) {
@@ -185,6 +218,7 @@ const ProductDetail = () => {
       </div>
     );
   }
+  
   return (
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="container mx-auto px-4">
@@ -192,13 +226,37 @@ const ProductDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
             {/* Product Images */}
             <div className="space-y-4">
-              <div className="aspect-w-3 aspect-h-4 rounded-lg overflow-hidden h-[400px]">
+              {/* Main Image */}
+              <div className="aspect-w-3 aspect-h-4 rounded-lg overflow-hidden h-[400px] border border-gray-200">
                 <img
-                  src={ product.productImages[0]?.imageUrl != undefined ? `http://localhost:8080${product.productImages[0]?.imageUrl}` : 'https://placehold.co/600x800?text=No+Image'}
+                  src={product.productImages.length > 0 
+                    ? `http://localhost:8080${product.productImages[activeImageIndex]?.imageUrl}` 
+                    : 'https://placehold.co/600x800?text=No+Image'}
                   alt={product.name}
                   className="w-full h-full object-cover object-center"
                 />
               </div>
+              
+              {/* Thumbnails */}
+              {product.productImages.length > 1 && (
+                <div className="flex space-x-2 overflow-x-auto py-2">
+                  {product.productImages.map((image, index) => (
+                    <div 
+                      key={image.id || index}
+                      onClick={() => handleThumbnailClick(index)}
+                      className={`cursor-pointer h-20 w-20 flex-shrink-0 rounded-md overflow-hidden border-2 transition-all ${
+                        activeImageIndex === index ? 'border-purple-600' : 'border-gray-200 hover:border-purple-300'
+                      }`}
+                    >
+                      <img
+                        src={`http://localhost:8080${image.imageUrl}`}
+                        alt={`${product.name} thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover object-center"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Product Info */}

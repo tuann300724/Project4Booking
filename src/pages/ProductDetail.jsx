@@ -12,6 +12,7 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [discountCode, setDiscountCode] = useState('');
@@ -34,6 +35,11 @@ const ProductDetail = () => {
           const related = await getRelatedProducts(data.category.id, data.id);
           setRelatedProducts(related);
         }
+        // Fetch featured products
+        const response = await fetch('http://localhost:8080/api/products');
+        const allProducts = await response.json();
+        const featured = allProducts.filter(p => p.isFeatured === true && p.id !== data.id);
+        setFeaturedProducts(featured);
         setLoading(false);
       } catch (err) {
         setError('Failed to load product details');
@@ -270,11 +276,6 @@ const ProductDetail = () => {
                 </p>
               </div>
 
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Mô tả</h2>
-                <p className="text-gray-600">{product.description}</p>
-              </div>
-
               {/* Size Selection */}
               <div>
                 <h2 className="text-lg font-semibold mb-4">Kích thước</h2>
@@ -332,40 +333,6 @@ const ProductDetail = () => {
                 </div>
               </div>
 
-              {/* Discount Code
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold mb-4">Mã giảm giá</h2>
-                {product.discount ? (
-                  <>
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
-                        value={discountCode}
-                        onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
-                        placeholder="Nhập mã giảm giá"
-                        className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      />
-                      <button
-                        onClick={handleApplyDiscount}
-                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-300"
-                      >
-                        Áp dụng
-                      </button>
-                    </div>
-                    {discountError && (
-                      <p className="mt-2 text-red-600 text-sm">{discountError}</p>
-                    )}
-                    {appliedDiscount && (
-                      <p className="mt-2 text-green-600 text-sm">
-                        Đã áp dụng {isUserVoucher ? 'voucher' : 'mã giảm giá'}: {appliedDiscount.code}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-gray-500 text-sm">Sản phẩm này không áp dụng mã giảm giá</p>
-                )}
-              </div> */}
-
               {/* Price Display */}
               <div>
                 <h2 className="text-lg font-semibold mb-2">Giá</h2>
@@ -394,14 +361,14 @@ const ProductDetail = () => {
               >
                 Thêm vào giỏ hàng
               </button>
+            </div>
+          </div>
 
-              {/* Product Details */}
-              {/* <div>
-                <h2 className="text-lg font-semibold mb-4">Thông tin sản phẩm</h2>
-                <ul className="space-y-2">
-                  <li className="text-gray-600">Danh mục: {product.category?.name || 'Chưa phân loại'}</li>
-                </ul>
-              </div> */}
+          {/* Description Section */}
+          <div className="mt-8 p-8 bg-white rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Mô tả sản phẩm</h2>
+            <div className="prose max-w-none">
+              <p className="text-gray-600 whitespace-pre-line">{product.description}</p>
             </div>
           </div>
         </div>
@@ -419,7 +386,9 @@ const ProductDetail = () => {
                 >
                   <div className="aspect-w-3 aspect-h-4">
                     <img
-                      src={`http://localhost:8080${relatedProduct.productImages[0]?.imageUrl}` || 'https://placehold.co/600x800?text=No+Image'}
+                      src={relatedProduct.productImages && relatedProduct.productImages.length > 0 && relatedProduct.productImages[0].imageUrl
+                        ? `http://localhost:8080${relatedProduct.productImages[0].imageUrl}`
+                        : 'https://placehold.co/400x500?text=No+Image'}
                       alt={relatedProduct.name}
                       className="w-full h-full object-cover object-center"
                     />
@@ -431,20 +400,38 @@ const ProductDetail = () => {
                     <p className="text-xl font-bold text-purple-600">
                       {relatedProduct.price.toLocaleString()}đ
                     </p>
-                    {/* <div className="mt-2 flex flex-wrap gap-2">
-                      {relatedProduct.productSizes.map((sizeInfo) => (
-                        <span
-                          key={sizeInfo.id.sizeId}
-                          className={`px-2 py-1 text-sm rounded ${
-                            sizeInfo.stock > 0
-                              ? 'bg-gray-100 text-gray-800'
-                              : 'bg-gray-200 text-gray-400'
-                          }`}
-                        >
-                          {getSizeLabel(sizeInfo.id.sizeId)}
-                        </span>
-                      ))}
-                    </div> */}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Featured Products Section */}
+        {featuredProducts.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Sản phẩm nổi bật</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((featuredProduct) => (
+                <Link
+                  key={featuredProduct.id}
+                  to={`/products/${featuredProduct.id}`}
+                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                >
+                  <div className="aspect-w-3 aspect-h-4">
+                    <img
+                      src={`http://localhost:8080${featuredProduct.productImages[0]?.imageUrl}` || 'https://placehold.co/600x800?text=No+Image'}
+                      alt={featuredProduct.name}
+                      className="w-full h-full object-cover object-center"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+                      {featuredProduct.name}
+                    </h3>
+                    <p className="text-xl font-bold text-purple-600">
+                      {featuredProduct.price.toLocaleString()}đ
+                    </p>
                   </div>
                 </Link>
               ))}

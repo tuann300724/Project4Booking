@@ -16,6 +16,7 @@ const ProductForm = () => {
     description: '',
     images: [], // [{ url, file }]
     status: 'in_stock',
+    isFeatured: false,
     sizes: [
       { size: 'S', quantity: 0 },
       { size: 'M', quantity: 0 },
@@ -52,6 +53,7 @@ const ProductForm = () => {
           { url: 'https://placehold.co/400x400', file: null }
         ],
         status: 'in_stock',
+        isFeatured: false,
         sizes: [
           { size: 'S', quantity: 10 },
           { size: 'M', quantity: 15 },
@@ -167,6 +169,7 @@ const ProductForm = () => {
       productForm.append('description', formData.description);
       productForm.append('price', formData.price);
       productForm.append('categoryId', formData.category);
+      productForm.append('isFeatured', formData.isFeatured);
       formData.images.forEach(imgObj => {
         if (imgObj.file) productForm.append('images', imgObj.file);
       });
@@ -436,7 +439,18 @@ const ProductForm = () => {
             </div>
           </div>
 
-        
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="isFeatured"
+              checked={formData.isFeatured}
+              onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+              className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+            />
+            <label htmlFor="isFeatured" className="text-sm font-medium text-gray-700">
+              Sản phẩm nổi bật
+            </label>
+          </div>
 
           <div className="flex justify-end space-x-4">
             <button

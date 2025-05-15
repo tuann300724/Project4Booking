@@ -18,6 +18,7 @@ const EditProduct = () => {
     description: '',
     price: '',
     categoryId: '',
+    isFeatured: false,
     productSizes: [],
   });
 
@@ -69,6 +70,7 @@ const EditProduct = () => {
           description: product.description,
           price: product.price,
           categoryId: product.category.id,
+          isFeatured: product.isFeatured,
           productSizes,
         });
       } catch (err) {
@@ -159,6 +161,7 @@ const EditProduct = () => {
       formDataToSend.append('description', formData.description);
       formDataToSend.append('price', formData.price.toString());
       formDataToSend.append('categoryId', formData.categoryId);
+      formDataToSend.append('isFeatured', formData.isFeatured);
 
       // Tách riêng hình cũ và mới
       const existingImages = images.filter(img => img.id && typeof img.id === 'number');
@@ -430,6 +433,20 @@ const EditProduct = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Thêm checkbox isFeatured */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isFeatured"
+                checked={formData.isFeatured}
+                onChange={(e) => setFormData(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+              />
+              <label htmlFor="isFeatured" className="text-sm font-medium text-gray-700">
+                Sản phẩm nổi bật
+              </label>
             </div>
           </div>
 

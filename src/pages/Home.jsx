@@ -3,53 +3,80 @@ import { Link } from 'react-router-dom';
 import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
+import axios from 'axios';
 
 const Home = () => {
   const [categories, setCategories] = useState([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/categories');
-        if (response.ok) {
-          const data = await response.json();
-          setCategories(data);
-        } else {
-          console.error('Failed to fetch categories');
-        }
+        // Fetch categories
+        const categoriesResponse = await axios.get('http://localhost:8080/api/categories');
+        setCategories(categoriesResponse.data);
+
+        // Fetch all products and filter featured ones
+        const productsResponse = await axios.get('http://localhost:8080/api/products');
+        const featuredProducts = productsResponse.data.filter(product => product.isFeatured === true);
+        setFeaturedProducts(featuredProducts);
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCategories();
+    fetchData();
   }, []);
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(amount);
+  };
 
   // Settings for the slider
   const sliderSettings = {
     dots: true,
     infinite: true,
-    speed: 500,
-    slidesToShow: 3,
+    speed: 800,
+    slidesToShow: 4,
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 3000,
+    rtl: false,
+    cssEase: 'linear',
+    arrows: true,
+    pauseOnHover: true,
     responsive: [
       {
         breakpoint: 1024,
         settings: {
+          slidesToShow: 3,
+          slidesToScroll: 1,
+          infinite: true,
+          dots: true
+        }
+      },
+      {
+        breakpoint: 768,
+        settings: {
           slidesToShow: 2,
           slidesToScroll: 1,
+          infinite: true,
+          dots: true
         }
       },
       {
         breakpoint: 640,
         settings: {
           slidesToShow: 1,
-          slidesToScroll: 1
+          slidesToScroll: 1,
+          infinite: true,
+          dots: true
         }
       }
     ]
@@ -134,41 +161,88 @@ const Home = () => {
           <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
             Sản Phẩm Nổi Bật
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {[1, 2, 3, 4].map((product) => (
-              <div
-                key={product}
-                className="bg-white rounded-lg shadow-md overflow-hidden group"
-              >
-                <div className="relative overflow-hidden">
-                  <img
-                    src={`https://placehold.co/400x500?fashion=${product}`}
-                    alt={`Product ${product}`}
-                    className="w-full h-80 object-cover group-hover:scale-110 transition duration-300"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
-                    <button className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300">
-                      Xem chi tiết
-                    </button>
+          {loading ? (
+            <div className="flex justify-center items-center h-80">
+              <div className="w-12 h-12 border-4 border-t-purple-600 border-gray-200 rounded-full animate-spin"></div>
+            </div>
+          ) : featuredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">Chưa có sản phẩm nổi bật nào</p>
+            </div>
+          ) : (
+            <div className="featured-products-slider px-4">
+              <style>
+                {`
+                  .slick-prev, .slick-next {
+                    z-index: 1;
+                    width: 40px;
+                    height: 40px;
+                    background: white !important;
+                    border-radius: 50%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                  }
+                  .slick-prev {
+                    left: -20px;
+                  }
+                  .slick-next {
+                    right: -20px;
+                  }
+                  .slick-prev:before, .slick-next:before {
+                    color: #6B46C1;
+                    font-size: 20px;
+                  }
+                  .slick-dots {
+                    bottom: -40px;
+                  }
+                  .slick-dots li button:before {
+                    color: #6B46C1;
+                  }
+                  .slick-dots li.slick-active button:before {
+                    color: #6B46C1;
+                  }
+                `}
+              </style>
+              <Slider {...sliderSettings}>
+                {featuredProducts.map((product) => (
+                  <div key={product.id} className="px-2">
+                    <div className="bg-white rounded-lg shadow-md overflow-hidden group h-[500px] flex flex-col">
+                      <div className="relative overflow-hidden h-[300px]">
+                        <img
+                          src={product.productImages[0]?.imageUrl ? `http://localhost:8080${product.productImages[0].imageUrl}` : 'https://placehold.co/400x500?text=No+Image'}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition duration-300 flex items-center justify-center">
+                          <Link 
+                            to={`/products/${product.id}`}
+                            className="bg-white text-gray-800 px-6 py-2 rounded-full hover:bg-purple-600 hover:text-white transition duration-300"
+                          >
+                            Xem chi tiết
+                          </Link>
+                        </div>
+                      </div>
+                      <div className="p-4 flex flex-col flex-grow">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-1">
+                          {product.name}
+                        </h3>
+                        <p className="text-gray-600 mb-2 line-clamp-2 flex-grow">
+                          {product.description}
+                        </p>
+                        <div className="flex justify-between items-center mt-auto">
+                          <span className="text-purple-600 font-bold">{formatCurrency(product.price)}</span>
+                          <button className="text-gray-600 hover:text-purple-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    Sản phẩm {product}
-                  </h3>
-                  <p className="text-gray-600 mb-2">Mô tả ngắn về sản phẩm</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-purple-600 font-bold">500.000đ</span>
-                    <button className="text-gray-600 hover:text-purple-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                ))}
+              </Slider>
+            </div>
+          )}
         </div>
       </section>
 

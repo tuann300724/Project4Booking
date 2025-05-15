@@ -108,6 +108,7 @@ const AdminProducts = () => {
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Giá</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Tồn kho</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Trạng thái</th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Nổi bật</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-purple-700 uppercase tracking-wider">Thao tác</th>
                 </tr>
               </thead>
@@ -134,7 +135,11 @@ const AdminProducts = () => {
                           {status}
                         </span>
                       </td>
-                     
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${product.isFeatured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {product.isFeatured ? 'Có' : 'Không'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <Link
                           to={`/admin/products/edit/${product.id}`}

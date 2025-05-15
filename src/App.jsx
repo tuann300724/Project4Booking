@@ -15,13 +15,12 @@ import Orders from './pages/admin/Orders';
 import OrderDetail from './pages/admin/OrderDetail';
 import AdminProducts from "./pages/admin/AdminProducts";
 import Discounts from "./pages/admin/Discounts";
-
+import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import Users from './pages/admin/Users';
 import Revenue from './pages/admin/Revenue';
 import Card from './pages/Card';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
-// import OrderList from "./pages/OrderList";
 import OrderDetailUser from "./pages/OrderDetailUser";
 import EditProduct from "./pages/admin/EditProduct";
 import UserOrders from "./pages/UserOrders";
@@ -32,10 +31,6 @@ import UserDetail from "./pages/admin/UserDetail";
 import UserVouchers from "./pages/UserVouchers";
 import VNPayReturn from './pages/VNPayReturn';
 import ProductForm from "./pages/admin/ProductForm";
-// Bạn có thể tạo thêm các trang About, Contact, Booking nếu muốn
-// import About from "./pages/About";
-// import Contact from "./pages/Contact";
-// import Booking from "./pages/Booking";
 
 function App() {
   return (
@@ -58,27 +53,27 @@ function App() {
                 <Route path="cart" element={<Card />} />
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="user/vouchers" element={<UserVouchers />} />
-                {/* <Route path="orderslist" element={<OrderList />} /> */}
                 <Route path="user/profile" element={<UserProfile />} />
                 <Route path="user/orders" element={<UserOrders />} />
                 <Route path="order-success" element={<OrderSuccess />} />
-                {/* <Route path="orderslist/:id" element={<OrderDetailUser />} /> */}
                 <Route path="user/orders/:id" element={<UserOrderDetail />} />
                 <Route path="payment/vnpay/return" element={<VNPayReturn />} />
               </Route>
 
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="orders" element={<Orders />} />
-                <Route path="orders/:id" element={<OrderDetail />} />
-                <Route path="users/:id" element={<UserDetail />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="discounts" element={<Discounts />} />
-                <Route path="products/new" element={<ProductForm />} />
-                <Route path="payments/:id" element={<PaymentDetail />} />
-                <Route path="products/edit/:id" element={<EditProduct />} />
-                <Route path="users" element={<Users />} />
-                <Route path="revenue" element={<Revenue />} />
+              <Route element={<ProtectedAdminRoute />}>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="orders" element={<Orders />} />
+                  <Route path="orders/:id" element={<OrderDetail />} />
+                  <Route path="users/:id" element={<UserDetail />} />
+                  <Route path="products" element={<AdminProducts />} />
+                  <Route path="discounts" element={<Discounts />} />
+                  <Route path="products/new" element={<ProductForm />} />
+                  <Route path="payments/:id" element={<PaymentDetail />} />
+                  <Route path="products/edit/:id" element={<EditProduct />} />
+                  <Route path="users" element={<Users />} />
+                  <Route path="revenue" element={<Revenue />} />
+                </Route>
               </Route>
             </Routes>
           </CartProvider>

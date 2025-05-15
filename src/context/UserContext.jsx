@@ -15,20 +15,28 @@ export const UserProvider = ({ children }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
 
-  // Load user from localStorage on mount
   useEffect(() => {
+    // Kiểm tra localStorage khi component mount
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('user');
       }
     }
   }, []);
 
+  const login = (userData) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setIsAuthModalOpen(false);
+  };
+
   const logout = () => {
-    localStorage.removeItem('user');
     setUser(null);
+    localStorage.removeItem('user');
   };
 
   const openLoginModal = () => {
@@ -45,20 +53,22 @@ export const UserProvider = ({ children }) => {
     setIsAuthModalOpen(false);
   };
 
+  const value = {
+    user,
+    setUser,
+    isLoggedIn: !!user,
+    logout,
+    login,
+    isAdmin: user?.role === 1,
+    isAuthModalOpen,
+    authMode,
+    openLoginModal,
+    openRegisterModal,
+    closeAuthModal
+  };
+
   return (
-    <UserContext.Provider
-      value={{
-        user,
-        setUser,
-        isLoggedIn: !!user,
-        logout,
-        isAuthModalOpen,
-        authMode,
-        openLoginModal,
-        openRegisterModal,
-        closeAuthModal,
-      }}
-    >
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

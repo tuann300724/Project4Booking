@@ -134,7 +134,7 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!selectedSize) {
       enqueueSnackbar('Vui lòng chọn kích thước', { 
         variant: 'warning',
@@ -156,35 +156,28 @@ const ProductDetail = () => {
       return;
     }
 
-    const productToAdd = {
-      id: product.id,
-      name: product.name,
-      price: appliedDiscount ? calculateDiscountedPrice() : product.price,
-      image: `http://localhost:8080${product.productImages[0]?.imageUrl}`,
-      size: selectedSize,
-      quantity: quantity,
-      discountCode: appliedDiscount?.code,
-      isUserVoucher: isUserVoucher,
-      userId: isUserVoucher ? user?.id : null
-    };
-
-    addToCart(productToAdd);
-    
-    enqueueSnackbar(`Đã thêm ${quantity} sản phẩm "${product.name}" vào giỏ hàng`, {
-      variant: 'success',
-      anchorOrigin: {
-        vertical: 'top',
-        horizontal: 'right',
-      },
-      action: (key) => (
-        <button 
-          onClick={() => navigate('/cart')} 
-          className="text-white font-medium underline"
-        >
-          Xem giỏ hàng
-        </button>
-      ),
-    });
+    try {
+      await addToCart(product, selectedSize, quantity);
+      
+      enqueueSnackbar(`Đã thêm ${quantity} sản phẩm "${product.name}" vào giỏ hàng`, {
+        variant: 'success',
+        anchorOrigin: {
+          vertical: 'top',
+          horizontal: 'right',
+        },
+        action: (key) => (
+          <button 
+            onClick={() => navigate('/cart')} 
+            className="text-white font-medium underline"
+          >
+            Xem giỏ hàng
+          </button>
+        ),
+      });
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      enqueueSnackbar('Không thể thêm vào giỏ hàng', { variant: 'error' });
+    }
   };
 
   const getSizeLabel = (sizeId) => {

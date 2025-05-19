@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -11,32 +12,87 @@ const Dashboard = () => {
     monthlyRevenue: []
   });
 
-  // Giả lập dữ liệu thống kê
   useEffect(() => {
-    setStats({
-      totalOrders: 150,
-      totalProducts: 45,
-      totalUsers: 1200,
-      totalRevenue: 15000000,
-      recentOrders: [
-        { id: 1, customer: 'Nguyễn Văn A', amount: 1500000, status: 'completed' },
-        { id: 2, customer: 'Trần Thị B', amount: 2300000, status: 'pending' },
-        { id: 3, customer: 'Lê Văn C', amount: 950000, status: 'processing' },
-      ],
-      topProducts: [
-        { name: 'Áo thun nam', sales: 120, revenue: 3600000 },
-        { name: 'Quần jean nữ', sales: 85, revenue: 2550000 },
-        { name: 'Giày thể thao', sales: 65, revenue: 1950000 },
-      ],
-      monthlyRevenue: [
-        { month: 'T1', revenue: 12000000 },
-        { month: 'T2', revenue: 15000000 },
-        { month: 'T3', revenue: 18000000 },
-        { month: 'T4', revenue: 14000000 },
-        { month: 'T5', revenue: 16000000 },
-        { month: 'T6', revenue: 19000000 },
-      ]
-    });
+    const fetchData = async () => {
+      try {
+        // Fetch products
+        const productsRes = await axios.get('http://localhost:8080/api/products');
+        const products = productsRes.data;
+
+        // Fetch users (excluding admin role)
+        const usersRes = await axios.get('http://localhost:8080/api/users');
+        const users = usersRes.data.filter(user => user.role.id !== 1);
+
+        // Fetch orders
+        const ordersRes = await axios.get('http://localhost:8080/api/orders');
+        const orders = ordersRes.data;
+
+        // Fetch payments
+        const paymentsRes = await axios.get('http://localhost:8080/api/payments');
+        const payments = paymentsRes.data;
+
+        // Calculate total revenue
+        const totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
+
+        // Get recent orders (last 5)
+        const recentOrders = orders.slice(-5).map(order => ({
+          id: order.id,
+          customer: order.receiverName,
+          amount: order.total,
+          status: order.status,
+          orderCode: order.orderCode
+        }));
+
+        // Calculate top products
+        const productSales = {};
+        orders.forEach(order => {
+          order.orderItems.forEach(item => {
+            if (!productSales[item.product.id]) {
+              productSales[item.product.id] = {
+                name: item.product.name,
+                sales: 0,
+                revenue: 0
+              };
+            }
+            productSales[item.product.id].sales += item.quantity;
+            productSales[item.product.id].revenue += item.price * item.quantity;
+          });
+        });
+
+        const topProducts = Object.values(productSales)
+          .sort((a, b) => b.revenue - a.revenue)
+          .slice(0, 3);
+
+        // Calculate monthly revenue
+        const monthlyRevenue = orders.reduce((acc, order) => {
+          const month = new Date(order.createdAt).getMonth() + 1;
+          if (!acc[month]) {
+            acc[month] = 0;
+          }
+          acc[month] += order.total;
+          return acc;
+        }, {});
+
+        const monthlyRevenueArray = Object.entries(monthlyRevenue).map(([month, revenue]) => ({
+          month: `T${month}`,
+          revenue
+        }));
+
+        setStats({
+          totalOrders: orders.length,
+          totalProducts: products.length,
+          totalUsers: users.length,
+          totalRevenue,
+          recentOrders,
+          topProducts,
+          monthlyRevenue: monthlyRevenueArray
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   const formatCurrency = (amount) => {
@@ -151,12 +207,12 @@ const Dashboard = () => {
                   <p className="text-sm text-gray-500">{formatCurrency(order.amount)}</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-sm ${
-                  order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                  order.status === 'Xác nhận' ? 'bg-green-100 text-green-800' :
+                  order.status === 'Đang xử lý' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-blue-100 text-blue-800'
                 }`}>
-                  {order.status === 'completed' ? 'Hoàn thành' :
-                   order.status === 'pending' ? 'Đang chờ' :
+                  {order.status === 'Xác nhận' ? 'Hoàn thành' :
+                   order.status === 'Đang xử lý' ? 'Đang chờ' :
                    'Đang xử lý'}
                 </span>
               </div>

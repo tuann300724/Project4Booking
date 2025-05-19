@@ -8,6 +8,7 @@ const OrderSuccess = () => {
   const [order, setOrder] = useState(null);
   const [isVNPaySuccess, setIsVNPaySuccess] = useState(false);
   const [voucherProcessed, setVoucherProcessed] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   useEffect(() => {
     // Check if coming from VNPay
@@ -52,6 +53,7 @@ const OrderSuccess = () => {
     // Get order from localStorage
     try {
       const savedOrder = localStorage.getItem('lastOrder');
+      console.log("save",savedOrder);
       if (savedOrder) {
         setOrder(JSON.parse(savedOrder));
       }
@@ -59,6 +61,48 @@ const OrderSuccess = () => {
       console.error('Error loading order:', error);
     }
   }, [location.search, voucherProcessed]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!order?.expiredAt) {
+      console.log('No expiredAt:', order);
+      return;
+    }
+
+    console.log('ExpiredAt:', order.expiredAt);
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const expiredTime = new Date(order.expiredAt).getTime();
+      const difference = expiredTime - now;
+
+      console.log('Time difference:', difference);
+
+      if (difference <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      console.log('Time left:', { hours, minutes, seconds });
+      setTimeLeft({ hours, minutes, seconds });
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timer);
+  }, [order?.expiredAt]);
+
+  // Format countdown display
+  const formatCountdown = () => {
+    console.log('Formatting countdown, timeLeft:', timeLeft);
+    if (!timeLeft) return 'Hết thời gian thanh toán';
+    return `${timeLeft.hours.toString().padStart(2, '0')}:${timeLeft.minutes.toString().padStart(2, '0')}:${timeLeft.seconds.toString().padStart(2, '0')}`;
+  };
 
   // Kiểm tra xem đơn hàng có phải thanh toán bằng COD không
   const isCODPayment = () => {
@@ -68,12 +112,33 @@ const OrderSuccess = () => {
 
   // Lấy trạng thái thanh toán tương ứng với phương thức thanh toán
   const getPaymentStatusText = () => {
-    if (isCODPayment()) {
-      return { text: 'Chờ thanh toán', color: 'text-yellow-600' };
-    } else {
-      return { text: 'Đã thanh toán', color: 'text-green-600' };
+    if (!order) return { text: '', color: '' };
+    
+    switch (order.paymentStatus) {
+      case 'Thanh toán khi nhận hàng':
+        return { text: 'Chưa thanh toán', color: 'text-yellow-600' };
+      case 'Chờ thanh toán':
+        return { text: 'Chờ thanh toán', color: 'text-yellow-600' };
+      case 'Đã thanh toán':
+        return { text: 'Đã thanh toán', color: 'text-green-600' };
+      default:
+        return { text: order.paymentStatus, color: 'text-gray-600' };
     }
   };
+
+  // Format payment method display
+  const getPaymentMethodText = (method) => {
+    switch (method) {
+      case 'cash':
+        return 'Tiền mặt';
+      case 'vnpay':
+        return 'VNPay';
+      default:
+        return method;
+    }
+  };
+
+  const paymentStatus = getPaymentStatusText();
 
   if (!order) {
     return (
@@ -105,7 +170,7 @@ const OrderSuccess = () => {
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
   };
-
+  console.log(order);
   // Get product image URL safely
   const getProductImageUrl = (item) => {
     if (!item || !item.product) return 'https://placehold.co/200x200?text=No+Image';
@@ -119,8 +184,6 @@ const OrderSuccess = () => {
     
     return 'https://placehold.co/200x200?text=No+Image';
   };
-
-  const paymentStatus = getPaymentStatusText();
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -152,9 +215,14 @@ const OrderSuccess = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-600 mb-2">Thông tin thanh toán</h3>
-                  <p className="text-gray-800">Phương thức: <span className="font-medium">{order.paymentStatus}</span></p>
+                  <p className="text-gray-800">Phương thức: <span className="font-medium">{getPaymentMethodText(order.paymentMethod)}</span></p>
                   <p className="text-gray-800">Tổng tiền: <span className="font-medium text-purple-600">{formatCurrency(order.total)}</span></p>
                   <p className="text-gray-800">Trạng thái: <span className={`font-medium ${paymentStatus.color}`}>{paymentStatus.text}</span></p>
+                  {order.paymentMethod === 'vnpay' && order.expiredAt && (
+                    <p className="text-gray-800 mt-2">
+                      Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>{formatCountdown()}</span>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

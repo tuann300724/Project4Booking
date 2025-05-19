@@ -85,9 +85,21 @@ const OrderDetail = () => {
       });
 
       if (response.ok) {
-        // Refresh order data
-        const updatedOrder = await response.json();
-        setOrder(updatedOrder);
+        // Cập nhật trạng thái ngay lập tức
+        setOrder(prevOrder => ({
+          ...prevOrder,
+          status: 'Xác nhận',
+          paymentStatus: 'Đã thanh toán',
+          updatedAt: new Date().toISOString()
+        }));
+
+        // Fetch lại dữ liệu mới nhất
+        const updatedOrderRes = await fetch(`http://localhost:8080/api/orders/${id}`);
+        if (updatedOrderRes.ok) {
+          const updatedOrderData = await updatedOrderRes.json();
+          setOrder(updatedOrderData);
+        }
+
         alert('Cập nhật trạng thái thành công!');
       } else {
         alert('Có lỗi xảy ra khi cập nhật trạng thái!');

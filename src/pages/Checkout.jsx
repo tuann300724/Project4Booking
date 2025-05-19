@@ -194,7 +194,9 @@ const Checkout = () => {
     const orderData = {
       userId: userId || 1,
       total: calculateDiscountedTotal(),
-      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'VNPay',
+      paymentMethod: formData.paymentMethod === 'cod' ? 'cash' : 'vnpay',
+      paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Chờ thanh toán',
+      status: 'Đang xử lý',
       receiverName: formData.fullName,
       receiverEmail: formData.email,
       receiverPhone: formData.phone,
@@ -245,6 +247,9 @@ const Checkout = () => {
         }));
       }
 
+      // Generate unique transaction ID
+      const transactionId = `ORDER_${order.id}_${Date.now()}`;
+
       // Get VNPay payment URL
       const paymentRes = await fetch(`http://localhost:8080/api/orders/${order.id}/payment`, {
         method: 'POST',
@@ -252,7 +257,8 @@ const Checkout = () => {
         body: JSON.stringify({
           amount: order.total,
           orderInfo: `Thanh toan don hang #${order.id}`,
-          returnUrl: `${window.location.origin}/payment/vnpay/return`
+          returnUrl: `${window.location.origin}/payment/vnpay/return`,
+          transactionId: transactionId
         })
       });
 
@@ -266,9 +272,21 @@ const Checkout = () => {
       }
 
       // Save order to localStorage and redirect to VNPay
-      localStorage.setItem('lastOrder', JSON.stringify(order));
+      localStorage.setItem('lastOrder', JSON.stringify({
+        ...order,
+        orderItems: orderData.orderItems,
+        transactionId: transactionId
+      }));
       clearCart();
-      window.location.href = paymentData.paymentUrl;
+      
+      // Open VNPay in new window
+      const paymentWindow = window.open(paymentData.paymentUrl, '_blank');
+      if (paymentWindow) {
+        paymentWindow.focus();
+      } else {
+        // Fallback if popup is blocked
+        window.location.href = paymentData.paymentUrl;
+      }
     } catch (error) {
       console.error('VNPay error:', error);
       alert(error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
@@ -302,7 +320,10 @@ const Checkout = () => {
         }
       }
       
-      localStorage.setItem('lastOrder', JSON.stringify(order));
+      localStorage.setItem('lastOrder', JSON.stringify({
+        ...order,
+        orderItems: orderData.orderItems
+      }));
       clearCart();
       navigate('/order-success');
     } catch (error) {

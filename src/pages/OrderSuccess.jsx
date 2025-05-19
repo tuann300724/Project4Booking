@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 
@@ -10,58 +10,53 @@ const OrderSuccess = () => {
   const [voucherProcessed, setVoucherProcessed] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
 
-  useEffect(() => {
-    // Check if coming from VNPay
+ useEffect(() => {
+  const fetchVNPayResult = async () => {
     const urlParams = new URLSearchParams(location.search);
-    const vnpResponseCode = urlParams.get('vnp_ResponseCode');
+    const responseCode = urlParams.get('vnp_ResponseCode');
     
-    if (vnpResponseCode === '00') {
+    if (responseCode === '00') {
       setIsVNPaySuccess(true);
-      
-      // Process pending voucher if this is a VNPay successful payment
-      const processPendingVoucher = async () => {
-        try {
+
+      try {
+        const response = await fetch(`http://localhost:8080/api/orders/payment/vnpay/return${location.search}`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('VNPay return data:', data);
+          setOrder(data.order); // set đơn hàng luôn từ response API
+          
+          // Xử lý giảm voucher
           const pendingVoucher = localStorage.getItem('pendingVoucher');
           if (pendingVoucher && !voucherProcessed) {
             const { userId, code } = JSON.parse(pendingVoucher);
-            
-            console.log('Processing VNPay voucher:', userId, code);
-            
-            // Decrease voucher count
-            const decreaseResponse = await fetch(`http://localhost:8080/api/vouchers/decrease?userId=${userId}&code=${code}`, {
+            const decreaseRes = await fetch(`http://localhost:8080/api/vouchers/decrease?userId=${userId}&code=${code}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' }
             });
-            
-            if (decreaseResponse.ok) {
-              console.log('VNPay voucher count decreased successfully');
+
+            if (decreaseRes.ok) {
+              console.log('Voucher đã giảm số lượng');
               localStorage.removeItem('pendingVoucher');
               setVoucherProcessed(true);
-            } else {
-              const errorText = await decreaseResponse.text();
-              console.error('Error decreasing voucher:', errorText);
             }
           }
-        } catch (error) {
-          console.error('Error processing pending voucher:', error);
+        } else {
+          console.error('Lỗi khi gọi /payment/vnpay/return');
         }
-      };
-      
-      processPendingVoucher();
-    }
-    
-    // Get order from localStorage
-    try {
+      } catch (error) {
+        console.error('Lỗi kết nối tới VNPay return:', error);
+      }
+    } else {
+      // fallback nếu không phải từ VNPay
       const savedOrder = localStorage.getItem('lastOrder');
-      console.log("save",savedOrder);
       if (savedOrder) {
         setOrder(JSON.parse(savedOrder));
       }
-    } catch (error) {
-      console.error('Error loading order:', error);
     }
-  }, [location.search, voucherProcessed]);
+  };
 
+  fetchVNPayResult();
+}, [location.search, voucherProcessed]);
   // Countdown timer effect
   useEffect(() => {
     if (!order?.expiredAt) {
@@ -218,11 +213,12 @@ const OrderSuccess = () => {
                   <p className="text-gray-800">Phương thức: <span className="font-medium">{getPaymentMethodText(order.paymentMethod)}</span></p>
                   <p className="text-gray-800">Tổng tiền: <span className="font-medium text-purple-600">{formatCurrency(order.total)}</span></p>
                   <p className="text-gray-800">Trạng thái: <span className={`font-medium ${paymentStatus.color}`}>{paymentStatus.text}</span></p>
-                  {order.paymentMethod === 'vnpay' && order.expiredAt && (
+                  {order.paymentMethod === 'vnpay' && order.expiredAt && order.paymentStatus != "Đã thanh toán" ? (
                     <p className="text-gray-800 mt-2">
                       Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>{formatCountdown()}</span>
                     </p>
-                  )}
+                  ) : <Fragment></Fragment>}
+                 
                 </div>
               </div>
             </div>

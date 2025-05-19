@@ -186,26 +186,23 @@ const UserOrderDetail = () => {
 
   const handlePayAgain = async () => {
     try {
-      // Generate unique transaction ID
-      const transactionId = `ORDER_${order.id}_${Date.now()}`;
-
-      // Get VNPay payment URL
-      const paymentRes = await fetch(`http://localhost:8080/api/orders/${order.id}/payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: order.total,
-          orderInfo: `Thanh toan don hang #${order.orderCode}`,
-          returnUrl: `http://localhost:8080/api/orders/payment/vnpay/return`,
-          transactionId: transactionId
-        })
-      });
-
-      if (!paymentRes.ok) {
-        throw new Error('Không thể tạo thanh toán VNPay');
+      // Check if order is already paid
+      if (order.paymentStatus === 'Đã thanh toán') {
+        alert('Đơn hàng này đã được thanh toán!');
+        return;
       }
 
-      const paymentData = await paymentRes.json();
+      // Get VNPay payment URL using axios
+      const response = await axios({
+        method: 'post',
+        url: `http://localhost:8080/api/orders/${order.id}/retry-payment`,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+
+      const paymentData = response.data;
       if (!paymentData.paymentUrl) {
         throw new Error('Không nhận được URL thanh toán');
       }
@@ -213,8 +210,7 @@ const UserOrderDetail = () => {
       // Save order to localStorage
       localStorage.setItem('lastOrder', JSON.stringify({
         ...order,
-        orderItems: orderItems,
-        transactionId: transactionId
+        orderItems: orderItems
       }));
 
       // Open VNPay in new window
@@ -227,7 +223,11 @@ const UserOrderDetail = () => {
       }
     } catch (error) {
       console.error('VNPay error:', error);
-      alert(error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
+      alert(error.response?.data || error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
     }
   };
 

@@ -21,6 +21,10 @@ const EditProduct = () => {
     isFeatured: false,
     productSizes: [],
   });
+  const [stockData, setStockData] = useState({});
+  const [stockChanges, setStockChanges] = useState({});
+  const [showStockNotification, setShowStockNotification] = useState(false);
+  const [initialStockData, setInitialStockData] = useState({});
 
   // Debug: log images array whenever it changes
   useEffect(() => {
@@ -73,6 +77,9 @@ const EditProduct = () => {
           isFeatured: product.isFeatured,
           productSizes,
         });
+        // Set stock data
+        setStockData(productSizes.reduce((acc, ps) => ({ ...acc, [ps.sizeId]: ps.stock }), {}));
+        setInitialStockData(productSizes.reduce((acc, ps) => ({ ...acc, [ps.sizeId]: ps.stock }), {}));
       } catch (err) {
         setError('Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.');
         console.error('Error fetching data:', err);
@@ -107,9 +114,9 @@ const EditProduct = () => {
     e.preventDefault();
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
-    
+
     console.log(`Processing ${files.length} new image files`);
-    
+
     const newImages = files.map(file => {
       // Generate a temporary id using timestamp and random string
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -121,7 +128,7 @@ const EditProduct = () => {
         isNew: true
       };
     });
-    
+
     setImages(prev => [...prev, ...newImages]);
     // Reset file input
     e.target.value = null;
@@ -132,12 +139,12 @@ const EditProduct = () => {
     setImages(prev => {
       const imageToRemove = prev[indexToRemove];
       console.log(`Removing image at index ${indexToRemove}`, imageToRemove);
-      
+
       // If this is a URL from an existing image, revoke it
       if (imageToRemove.url && imageToRemove.url.startsWith('blob:')) {
         URL.revokeObjectURL(imageToRemove.url);
       }
-      
+
       return prev.filter((_, index) => index !== indexToRemove);
     });
   };
@@ -166,7 +173,7 @@ const EditProduct = () => {
       // Tách riêng hình cũ và mới
       const existingImages = images.filter(img => img.id && typeof img.id === 'number');
       const newImages = images.filter(img => img.file);
-      
+
       console.log('Existing images before submission:', existingImages);
       console.log('New images before submission:', newImages);
 
@@ -206,7 +213,7 @@ const EditProduct = () => {
         `http://localhost:8080/api/products/${id}`,
         formDataToSend,
         {
-          headers: { 
+          headers: {
             'Content-Type': 'multipart/form-data',
             'Accept': 'application/json'
           },
@@ -219,17 +226,21 @@ const EditProduct = () => {
       // 2. Cập nhật số lượng size
       for (const size of sizes) {
         const sizeId = size.id;
-        const newStock = (formData.productSizes.find(ps => ps.sizeId === sizeId)?.stock) || 0;
-        
-        try {
-          await axios.put(
-            `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock`,
-            { stock: newStock },
-            { headers: { 'Content-Type': 'application/json' } }
-          );
-          console.log(`Updated stock for size ${sizeId} to ${newStock}`);
-        } catch (sizeError) {
-          console.error(`Error updating size ${sizeId}:`, sizeError);
+        const newStock = formData.productSizes.find(ps => ps.sizeId === sizeId)?.stock || 0;
+        const oldStock = stockData[sizeId] || 0;
+        const adjustment = newStock - oldStock;
+
+        if (adjustment !== 0) {
+          try {
+            await axios.put(
+              `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock?adjustment=${adjustment}`,
+              {},
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+            console.log(`Updated stock for size ${sizeId} with adjustment: ${adjustment}`);
+          } catch (sizeError) {
+            console.error(`Error updating size ${sizeId}:`, sizeError);
+          }
         }
       }
 
@@ -241,6 +252,71 @@ const EditProduct = () => {
       alert('Có lỗi xảy ra khi cập nhật sản phẩm: ' + (error.response?.data || error.message));
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Hàm để thay đổi số lượng
+  const handleStockChange = (sizeId, value) => {
+    const newValue = value === '' ? 0 : parseInt(value) || 0;
+    const oldValue = initialStockData[sizeId] || 0;
+    setStockData(prev => ({
+      ...prev,
+      [sizeId]: newValue
+    }));
+    setStockChanges(prev => ({
+      ...prev,
+      [sizeId]: newValue - oldValue
+    }));
+  };
+
+  // Hàm để cập nhật số lượng
+  const handleUpdateStock = async () => {
+    try {
+      // Chỉ cập nhật những size có thay đổi
+      const updatedSizes = Object.entries(stockChanges)
+        .filter(([_, change]) => change !== 0)
+        .map(([sizeId]) => sizeId);
+
+      if (updatedSizes.length === 0) {
+        alert('Không có thay đổi nào để cập nhật!');
+        return;
+      }
+
+      // Cập nhật từng size có thay đổi
+      for (const sizeId of updatedSizes) {
+        const change = stockChanges[sizeId];
+        try {
+          const response = await axios({
+            method: 'put',
+            url: `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock`,
+            params: {
+              adjustment: change
+            },
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            timeout: 10000
+          });
+
+          if (response.status === 200) {
+            console.log(`Updated stock for size ${sizeId} with adjustment: ${change}`);
+          }
+        } catch (sizeError) {
+          console.error(`Error updating size ${sizeId}:`, sizeError);
+          throw new Error(`Không thể cập nhật số lượng cho size ${sizeId}: ${sizeError.message}`);
+        }
+      }
+
+      // Hiển thị thông báo
+      setShowStockNotification(true);
+      setTimeout(() => setShowStockNotification(false), 3000);
+
+      // Reset stock changes
+      setStockChanges({});
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      alert(error.message || 'Có lỗi xảy ra khi cập nhật số lượng. Vui lòng thử lại.');
     }
   };
 
@@ -418,20 +494,41 @@ const EditProduct = () => {
 
             {/* Sizes and Stock */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Kích thước và số lượng</h3>
-              <div className="space-y-3">
-                {sizes.map(size => (
-                  <div key={size.id} className="flex items-center gap-4">
-                    <label className="w-24 text-sm font-medium text-gray-700">{size.name}</label>
-                    <input
-                      type="number"
-                      value={formData.productSizes.find(ps => ps.sizeId === size.id)?.stock ?? 0}
-                      onChange={e => handleSizeChange(size.id, e.target.value)}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                      min="0"
-                    />
-                  </div>
-                ))}
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Kích thước và số lượng</h3>
+                <button
+                  type="button"
+                  onClick={handleUpdateStock}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors duration-200"
+                >
+                  Cập nhật số lượng
+                </button>
+              </div>
+              <div className="space-y-4">
+                {sizes.map(size => {
+                  const change = stockChanges[size.id] || 0;
+                  return (
+                    <div key={size.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <label className="w-24 text-sm font-medium text-gray-700">{size.name}</label>
+                      <input
+                        type="number"
+                        value={stockData[size.id] || 0}
+                        onChange={(e) => handleStockChange(size.id, e.target.value)}
+                        className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        min="0"
+                      />
+
+                      {change !== 0 && (
+                        <span className={`text-sm font-medium px-2 py-1 rounded-full ${change > 0
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-red-100 text-red-700'
+                          }`}>
+                          {change > 0 ? '+' : ''}{change}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -476,6 +573,16 @@ const EditProduct = () => {
             </button>
           </div>
         </form>
+
+        {/* Stock Update Notification */}
+        {showStockNotification && (
+          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center animate-fade-in-up">
+            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Cập nhật số lượng thành công!
+          </div>
+        )}
       </div>
     </div>
   );

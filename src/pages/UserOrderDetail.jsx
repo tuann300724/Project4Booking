@@ -324,7 +324,7 @@ const UserOrderDetail = () => {
                   <p className="text-sm">
                     <span className="font-medium">Trạng thái thanh toán:</span>{' '}
                     <span className={order.paymentStatus === 'paid' ? 'text-green-600' : 'text-yellow-600'}>
-                      {order.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                      {order.paymentStatus === 'paid' ? 'Chờ thanh toán' : 'Chưa thanh toán'}
                     </span>
                   </p>
                 </div>

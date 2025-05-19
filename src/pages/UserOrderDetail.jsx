@@ -13,6 +13,7 @@ const UserOrderDetail = () => {
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   const fetchOrderDetails = async () => {
     try {
@@ -36,6 +37,39 @@ const UserOrderDetail = () => {
     fetchOrderDetails();
   }, [id]);
 
+  // Add countdown timer effect
+  useEffect(() => {
+    if (!order?.expiredAt) return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const expiredTime = new Date(order.expiredAt).getTime();
+      const difference = expiredTime - now;
+
+      if (difference <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      setTimeLeft({ hours, minutes, seconds });
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timer);
+  }, [order?.expiredAt]);
+
+  // Format countdown display
+  const formatCountdown = () => {
+    if (!timeLeft) return 'Hết thời gian thanh toán';
+    return `${timeLeft.hours.toString().padStart(2, '0')}:${timeLeft.minutes.toString().padStart(2, '0')}:${timeLeft.seconds.toString().padStart(2, '0')}`;
+  };
+
   const getStatusInfo = (status) => {
     switch (status) {
       case 'pending':
@@ -50,6 +84,32 @@ const UserOrderDetail = () => {
         return { text: 'Đã hủy', color: 'bg-red-100 text-red-800', icon: 'x-circle' };
       default:
         return { text: status, color: 'bg-gray-100 text-gray-800', icon: 'info' };
+    }
+  };
+
+  const getPaymentStatusInfo = (status) => {
+    switch (status) {
+      case 'Chờ thanh toán':
+        return { text: 'Chờ thanh toán', color: 'bg-orange-100 text-orange-800', icon: 'clock' };
+      case 'Đã thanh toán':
+        return { text: 'Đã thanh toán', color: 'bg-green-100 text-green-800', icon: 'check-circle' };
+      case 'Thanh toán khi nhận hàng':
+        return { text: 'Thanh toán khi nhận hàng', color: 'bg-blue-100 text-blue-800', icon: 'cash' };
+      case 'Thanh toán thất bại':
+        return { text: 'Thanh toán thất bại', color: 'bg-red-100 text-red-800', icon: 'x-circle' };
+      default:
+        return { text: status, color: 'bg-gray-100 text-gray-800', icon: 'info' };
+    }
+  };
+
+  const getPaymentMethodInfo = (method) => {
+    switch (method) {
+      case 'vnpay':
+        return { text: 'VNPay', color: 'bg-blue-100 text-blue-800', icon: 'credit-card' };
+      case 'cash':
+        return { text: 'Tiền mặt', color: 'bg-green-100 text-green-800', icon: 'cash' };
+      default:
+        return { text: method, color: 'bg-gray-100 text-gray-800', icon: 'money' };
     }
   };
 
@@ -93,6 +153,53 @@ const UserOrderDetail = () => {
       setError('Không thể cập nhật trạng thái đơn hàng. Vui lòng thử lại sau.');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handlePayAgain = async () => {
+    try {
+      // Generate unique transaction ID
+      const transactionId = `ORDER_${order.id}_${Date.now()}`;
+
+      // Get VNPay payment URL
+      const paymentRes = await fetch(`http://localhost:8080/api/orders/${order.id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: order.total,
+          orderInfo: `Thanh toan don hang #${order.orderCode}`,
+          returnUrl: `http://localhost:8080/api/orders/payment/vnpay/return`,
+          transactionId: transactionId
+        })
+      });
+
+      if (!paymentRes.ok) {
+        throw new Error('Không thể tạo thanh toán VNPay');
+      }
+
+      const paymentData = await paymentRes.json();
+      if (!paymentData.paymentUrl) {
+        throw new Error('Không nhận được URL thanh toán');
+      }
+
+      // Save order to localStorage
+      localStorage.setItem('lastOrder', JSON.stringify({
+        ...order,
+        orderItems: orderItems,
+        transactionId: transactionId
+      }));
+
+      // Open VNPay in new window
+      const paymentWindow = window.open(paymentData.paymentUrl, '_blank');
+      if (paymentWindow) {
+        paymentWindow.focus();
+      } else {
+        // Fallback if popup is blocked
+        window.location.href = paymentData.paymentUrl;
+      }
+    } catch (error) {
+      console.error('VNPay error:', error);
+      alert(error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
     }
   };
 
@@ -334,6 +441,30 @@ const UserOrderDetail = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+            {order.paymentMethod === 'vnpay' && order.paymentStatus === 'Chờ thanh toán' && (
+              <div className="flex flex-col items-center space-y-2">
+                {order.expiredAt && (
+                  <div className="text-sm text-gray-600 mb-2">
+                    Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>
+                      {formatCountdown()}
+                    </span>
+                  </div>
+                )}
+                <button 
+                  onClick={handlePayAgain}
+                  disabled={!timeLeft}
+                  className={`px-6 py-2 bg-blue-600 text-white rounded-md transition-colors flex items-center justify-center ${
+                    !timeLeft ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                  {timeLeft ? 'Thanh toán ngay' : 'Hết thời gian thanh toán'}
+                </button>
+              </div>
+            )}
+
             {order.status === 'Chưa thanh toán' && (
               <button 
                 onClick={handleOrderReceived}
@@ -357,12 +488,18 @@ const UserOrderDetail = () => {
               </button>
             )}
 
-            <Link to="https://zalo.me/0366523313" target="_blank" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors">
+            <Link to="https://zalo.me/0366523313" target="_blank" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors flex items-center justify-center">
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
               Liên hệ hỗ trợ
-            </Link >
+            </Link>
 
             {order.status === 'completed' && (
-              <button className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+              <button className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center">
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                </svg>
                 Đánh giá sản phẩm
               </button>
             )}

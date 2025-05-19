@@ -84,6 +84,32 @@ const UserOrders = () => {
     }
   };
 
+  const getPaymentStatusInfo = (status) => {
+    switch (status) {
+      case 'Chờ thanh toán':
+        return { text: 'Chờ thanh toán', color: 'bg-orange-100 text-orange-800' };
+      case 'Đã thanh toán':
+        return { text: 'Đã thanh toán', color: 'bg-green-100 text-green-800' };
+      case 'Thanh toán khi nhận hàng':
+        return { text: 'Thanh toán khi nhận hàng', color: 'bg-blue-100 text-blue-800' };
+      case 'Thanh toán thất bại':
+        return { text: 'Thanh toán thất bại', color: 'bg-red-100 text-red-800' };
+      default:
+        return { text: status, color: 'bg-gray-100 text-gray-800' };
+    }
+  };
+
+  const getPaymentMethodInfo = (method) => {
+    switch (method) {
+      case 'vnpay':
+        return { text: 'VNPay', color: 'bg-blue-100 text-blue-800', icon: '💳' };
+      case 'cash':
+        return { text: 'Tiền mặt', color: 'bg-green-100 text-green-800', icon: '💵' };
+      default:
+        return { text: method, color: 'bg-gray-100 text-gray-800', icon: '💰' };
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
   };
@@ -242,10 +268,17 @@ const UserOrders = () => {
                         <h2 className="text-lg font-medium text-gray-900">Đơn hàng #{order.orderCode}</h2>
                         <p className="text-sm text-gray-600 mt-1">Ngày đặt: {formatDate(order.createdAt)}</p>
                       </div>
-                      <div>
+                      <div className="flex flex-col items-end gap-2">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusInfo(order.status).color}`}>
                           {getStatusInfo(order.status).text}
                         </span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentStatusInfo(order.paymentStatus).color}`}>
+                          {getPaymentStatusInfo(order.paymentStatus).text}
+                        </span>
+                        <div className={`px-3 py-1 rounded-full text-sm font-medium ${getPaymentMethodInfo(order.paymentMethod).color} flex items-center gap-1`}>
+                          <span>{getPaymentMethodInfo(order.paymentMethod).icon}</span>
+                          <span>{getPaymentMethodInfo(order.paymentMethod).text}</span>
+                        </div>
                       </div>
                     </div>
                     

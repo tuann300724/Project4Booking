@@ -8,6 +8,7 @@ const OrderDetail = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   useEffect(() => {
     const fetchOrderAndUser = async () => {
@@ -30,6 +31,104 @@ const OrderDetail = () => {
     };
     fetchOrderAndUser();
   }, [id]);
+
+  useEffect(() => {
+    if (!order?.expiredAt) return;
+
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
+      const expiredTime = new Date(order.expiredAt).getTime();
+      const difference = expiredTime - now;
+
+      if (difference <= 0) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const hours = Math.floor(difference / (1000 * 60 * 60));
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      setTimeLeft({ hours, minutes, seconds });
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+
+    return () => clearInterval(timer);
+  }, [order?.expiredAt]);
+
+  const formatCountdown = () => {
+    if (!timeLeft) return 'Hết thời gian thanh toán';
+    return `${timeLeft.hours.toString().padStart(2, '0')}:${timeLeft.minutes.toString().padStart(2, '0')}:${timeLeft.seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getPaymentStatusInfo = (status) => {
+    switch (status) {
+      case 'Chờ thanh toán':
+        return { text: 'Chờ thanh toán', color: 'bg-orange-100 text-orange-800', icon: 'clock' };
+      case 'Đã thanh toán':
+        return { text: 'Đã thanh toán', color: 'bg-green-100 text-green-800', icon: 'check-circle' };
+      case 'Thanh toán khi nhận hàng':
+        return { text: 'Thanh toán khi nhận hàng', color: 'bg-blue-100 text-blue-800', icon: 'cash' };
+      case 'Thanh toán thất bại':
+        return { text: 'Thanh toán thất bại', color: 'bg-red-100 text-red-800', icon: 'x-circle' };
+      default:
+        return { text: status, color: 'bg-gray-100 text-gray-800', icon: 'info' };
+    }
+  };
+
+  const getPaymentMethodInfo = (method) => {
+    switch (method) {
+      case 'vnpay':
+        return { text: 'VNPay', color: 'bg-blue-100 text-blue-800', icon: 'credit-card' };
+      case 'cash':
+        return { text: 'Tiền mặt', color: 'bg-green-100 text-green-800', icon: 'cash' };
+      default:
+        return { text: method, color: 'bg-gray-100 text-gray-800', icon: 'money' };
+    }
+  };
+
+  const getStatusIcon = (icon) => {
+    switch (icon) {
+      case 'clock':
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'check-circle':
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'cash':
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        );
+      case 'x-circle':
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'credit-card':
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -73,11 +172,11 @@ const OrderDetail = () => {
   const handleUpdateStatus = async () => {
     if (!order) return;
     
-    const paymentMethod = order.paymentStatus === 'Thanh toán khi nhận hàng' ? 'cash' : 'vnpay';
-    
+    const paymentMethods = order.paymentMethod;
+    console.log(paymentMethods);
     try {
       setUpdating(true);
-      const response = await fetch(`http://localhost:8080/api/orders/${id}/confirm?paymentMethod=${paymentMethod}`, {
+      const response = await fetch(`http://localhost:8080/api/orders/${id}/confirm?paymentMethod=${paymentMethods}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +283,23 @@ const OrderDetail = () => {
                 </p>
                 <p className="flex items-center">
                   <span className="font-medium w-32">Thanh toán:</span>
-                  <span className="text-gray-700">{order.paymentStatus}</span>
+                  <div className="flex flex-col gap-2">
+                    <span className={`flex items-center px-3 py-1 rounded-full text-sm ${getPaymentStatusInfo(order.paymentStatus).color}`}>
+                      {getStatusIcon(getPaymentStatusInfo(order.paymentStatus).icon)}
+                      <span className="ml-1">{getPaymentStatusInfo(order.paymentStatus).text}</span>
+                    </span>
+                    <span className={`flex items-center px-3 py-1 rounded-full text-sm ${getPaymentMethodInfo(order.paymentMethod).color}`}>
+                      {getStatusIcon(getPaymentMethodInfo(order.paymentMethod).icon)}
+                      <span className="ml-1">{getPaymentMethodInfo(order.paymentMethod).text}</span>
+                    </span>
+                    {order.paymentMethod === 'vnpay' && order.expiredAt && order.paymentStatus === 'Chờ thanh toán' && (
+                      <div className="text-sm text-gray-600">
+                        Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>
+                          {formatCountdown()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </p>
                 <p className="flex items-center">
                   <span className="font-medium w-32">Tổng tiền:</span>

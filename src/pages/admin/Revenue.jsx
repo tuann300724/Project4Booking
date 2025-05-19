@@ -61,8 +61,8 @@ const Revenue = () => {
     switch (method) {
       case 'cash':
         return 'Thanh toán khi nhận hàng';
-      case 'momo':
-        return 'Ví MoMo';
+      case 'vnpay':
+        return 'Thanh toán online';
       default:
         return method;
     }

@@ -142,7 +142,7 @@ const PaymentDetail = () => {
                 </p>
                 <p className="flex items-center">
                   <span className="font-medium w-40">Mã đơn hàng:</span>
-                  <span className="text-gray-700">#{payment.orderId}</span>
+                  <span className="text-gray-700">#{payment.transaction_code}</span>
                 </p>
                 <p className="flex items-center">
                   <span className="font-medium w-40">Ngày thanh toán:</span>

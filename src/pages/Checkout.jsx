@@ -2,18 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
-import { getAllSizes, validateDiscountCode } from '../api/productService';
+import { getAllSizes, validateDiscountCode, checkProductQuantity } from '../api/productService';
+import { useSnackbar } from 'notistack';
 
 const Checkout = () => {
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, updateQuantity } = useCart();
   const { user } = useUser();
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
   const [sizes, setSizes] = useState([]);
   const [discountCode, setDiscountCode] = useState('');
   const [discountError, setDiscountError] = useState('');
   const [appliedDiscount, setAppliedDiscount] = useState(null);
   const [isUserVoucher, setIsUserVoucher] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [productQuantities, setProductQuantities] = useState({});
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -24,17 +27,37 @@ const Checkout = () => {
   });
 
   useEffect(() => {
-    // Lấy danh sách size từ API
-    const fetchSizes = async () => {
+    // Fetch sizes and check quantities for all items in cart
+    const fetchData = async () => {
       try {
-        const data = await getAllSizes();
-        setSizes(data);
+        const sizesData = await getAllSizes();
+        setSizes(sizesData);
+
+        // Check quantities for all items in cart
+        const quantities = {};
+        for (const item of cart) {
+          let sizeId = item.size;
+          if (typeof sizeId === 'string') {
+            const found = sizesData.find(s => s.name === sizeId);
+            if (found) sizeId = found.id;
+          }
+          try {
+            const quantity = await checkProductQuantity(item.id, sizeId);
+            quantities[`${item.id}-${sizeId}`] = quantity;
+          } catch (error) {
+            console.error(`Error checking quantity for product ${item.id}, size ${sizeId}:`, error);
+            quantities[`${item.id}-${sizeId}`] = 0;
+          }
+        }
+        setProductQuantities(quantities);
       } catch (err) {
+        console.error('Error fetching data:', err);
         setSizes([]);
       }
     };
-    fetchSizes();
-  }, []);
+
+    fetchData();
+  }, [cart]);
 
   // Tự động điền thông tin người dùng nếu đã đăng nhập
   useEffect(() => {
@@ -141,12 +164,14 @@ const Checkout = () => {
     // Map size name sang id nếu cần
     const orderItems = cart.map(item => {
       let sizeId = item.size;
-      if (typeof sizeId === 'string') {
+      if (typeof sizeId === 'object' && sizeId !== null) {
+        sizeId = sizeId.id;
+      } else if (typeof sizeId === 'string') {
         const found = sizes.find(s => s.name === sizeId);
         if (found) sizeId = found.id;
       }
       return {
-        productId: item.id,
+        productId: item.product?.id || item.id,
         sizeId: sizeId,
         quantity: item.quantity,
         price: item.price
@@ -311,6 +336,25 @@ const Checkout = () => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0);
   };
 
+  const handleQuantityChange = async (item, newQuantity) => {
+    if (newQuantity < 1) return;
+
+    let sizeId = item.size?.id || item.size;
+    if (typeof sizeId === 'string') {
+      const found = sizes.find(s => s.name === sizeId);
+      if (found) sizeId = found.id;
+    }
+
+    const availableQuantity = productQuantities[`${item.product?.id || item.id}-${sizeId}`] || 0;
+    
+    if (newQuantity > availableQuantity) {
+      enqueueSnackbar(`Chỉ còn ${availableQuantity} sản phẩm trong kho`, { variant: 'error' });
+      return;
+    }
+
+    updateQuantity(item.id, newQuantity);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       {/* Loading Overlay */}
@@ -410,32 +454,44 @@ const Checkout = () => {
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-4 border-b">Đơn hàng của bạn</h2>
               <div className="space-y-4">
-                {cart.map((item) => (
-                  <div key={`${item.id}-${item.size}`} className="flex items-center">
-                    <div className="relative w-16 h-16 flex-shrink-0">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover rounded-lg shadow-sm"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://placehold.co/200x200?text=No+Image';
-                        }}
-                      />
+                {cart.map((item) => {
+                  let sizeId = item.size;
+                  if (typeof sizeId === 'string') {
+                    const found = sizes.find(s => s.name === sizeId);
+                    if (found) sizeId = found.id;
+                  }
+                  const availableQuantity = productQuantities[`${item.id}-${sizeId}`] || 0;
+                  
+                  return (
+                    <div key={`${item.id}-${item.size}`} className="flex items-center">
+                      <div className="relative w-16 h-16 flex-shrink-0">
+                        <img
+                          src={item.product?.image || 'https://placehold.co/200x200?text=No+Image'}
+                          alt={item.product?.name || 'Product'}
+                          className="w-full h-full object-cover rounded-lg shadow-sm"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://placehold.co/200x200?text=No+Image';
+                          }}
+                        />
+                      </div>
+                      <div className="ml-4 flex-grow">
+                        <h3 className="font-medium text-gray-800">{item.product?.name}</h3>
+                        <p className="text-sm text-gray-600">
+                          Size: {item.size?.name || item.size} | {item.quantity} x {item.price.toLocaleString('vi-VN')}đ
+                        </p>
+                        <div className="flex items-center mt-2">
+                        
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-purple-600">
+                          {(item.price * item.quantity).toLocaleString('vi-VN')}đ
+                        </p>
+                      </div>
                     </div>
-                    <div className="ml-4 flex-grow">
-                      <h3 className="font-medium text-gray-800">{item.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        Size: {item.size} | {item.quantity} x {item.price.toLocaleString('vi-VN')}đ
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-purple-600">
-                        {(item.price * item.quantity).toLocaleString('vi-VN')}đ
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Discount Code Section */}
                 <div className="pt-4 border-t">

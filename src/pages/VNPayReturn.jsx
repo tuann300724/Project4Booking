@@ -24,16 +24,20 @@ const VNPayReturn = () => {
       
       try {
         const vnpResponseCode = urlParams.get('vnp_ResponseCode');
+        const vnpTransactionStatus = urlParams.get('vnp_TransactionStatus');
+        const vnpTxnRef = urlParams.get('vnp_TxnRef');
         
         // Add debug info about response code
         setDebugInfo(prev => prev + `VNPay Response Code: ${vnpResponseCode}\n`);
+        setDebugInfo(prev => prev + `VNPay Transaction Status: ${vnpTransactionStatus}\n`);
+        setDebugInfo(prev => prev + `VNPay Transaction Ref: ${vnpTxnRef}\n`);
         
         // Check if there's a pending voucher
         const pendingVoucher = localStorage.getItem('pendingVoucher');
         setDebugInfo(prev => prev + `Pending Voucher: ${pendingVoucher || 'None'}\n`);
         
         // Check payment status
-        if (vnpResponseCode === '00') {
+        if (vnpResponseCode === '00' && vnpTransactionStatus === '00') {
           setStatus('success');
           setMessage('Thanh toán thành công!');
           

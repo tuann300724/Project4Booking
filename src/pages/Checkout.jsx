@@ -257,7 +257,7 @@ const Checkout = () => {
         body: JSON.stringify({
           amount: order.total,
           orderInfo: `Thanh toan don hang #${order.id}`,
-          returnUrl: `${window.location.origin}/payment/vnpay/return`,
+          returnUrl: `http://localhost:8080/api/orders/payment/vnpay/return`,
           transactionId: transactionId
         })
       });

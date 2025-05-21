@@ -160,6 +160,26 @@ const Checkout = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    // Kiểm tra số lượng tồn kho trước khi đặt hàng
+    for (const item of cart) {
+      let sizeId = item.size;
+      if (typeof sizeId === 'string') {
+        const found = sizes.find(s => s.name === sizeId);
+        if (found) sizeId = found.id;
+      }
+      
+      const availableQuantity = productQuantities[`${item.product?.id || item.id}-${sizeId}`] || 0;
+      
+      if (item.quantity > availableQuantity) {
+        setIsSubmitting(false);
+        enqueueSnackbar(
+          `Sản phẩm "${item.product?.name || 'Không xác định'}" size ${item.size?.name || item.size} không đủ số lượng. Còn lại: ${availableQuantity}, Yêu cầu: ${item.quantity}`, 
+          { variant: 'error' }
+        );
+        return;
+      }
+    }
     
     // Map size name sang id nếu cần
     const orderItems = cart.map(item => {
@@ -576,4 +596,4 @@ const Checkout = () => {
   );
 };
 
-export default Checkout; 
+export default Checkout;

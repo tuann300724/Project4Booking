@@ -249,7 +249,8 @@ const Checkout = () => {
       });
 
       if (!res.ok) {
-        throw new Error('Không thể tạo đơn hàng');
+        const errorData = await res.text();
+        throw new Error(`Không thể tạo đơn hàng: ${errorData}`);
       }
 
       const order = await res.json();
@@ -277,18 +278,23 @@ const Checkout = () => {
         body: JSON.stringify({
           amount: order.total,
           orderInfo: `Thanh toan don hang #${order.id}`,
-          returnUrl: `http://localhost:8080/api/orders/payment/vnpay/return`,
+          returnUrl: `http://localhost:5173/order-success`,
           transactionId: transactionId
         })
       });
 
       if (!paymentRes.ok) {
-        throw new Error('Không thể tạo thanh toán VNPay');
+        const errorData = await paymentRes.text();
+        console.error('VNPay payment response error:', errorData);
+        throw new Error(`Không thể tạo thanh toán VNPay: ${errorData}`);
       }
 
       const paymentData = await paymentRes.json();
-      if (!paymentData.paymentUrl) {
-        throw new Error('Không nhận được URL thanh toán');
+      console.log('VNPay payment response:', paymentData); // Debug log
+
+      if (!paymentData.success || !paymentData.data?.paymentUrl) {
+        console.error('Invalid payment data:', paymentData);
+        throw new Error('Không nhận được URL thanh toán từ VNPay');
       }
 
       // Save order to localStorage and redirect to VNPay
@@ -299,16 +305,28 @@ const Checkout = () => {
       }));
       clearCart();
       
-      // Open VNPay in new window
-      const paymentWindow = window.open(paymentData.paymentUrl, '_blank');
+      // Open VNPay in new window and handle the return URL
+      const paymentWindow = window.open(paymentData.data.paymentUrl, '_blank');
       if (paymentWindow) {
         paymentWindow.focus();
+        // Add event listener to handle window close
+        const checkWindow = setInterval(() => {
+          if (paymentWindow.closed) {
+            clearInterval(checkWindow);
+            // Redirect to OrderSuccess page
+            navigate('/order-success');
+          }
+        }, 1000);
       } else {
-        // Fallback if popup is blocked
-        window.location.href = paymentData.paymentUrl;
+        // Fallback if popup is blocked - redirect directly
+        window.location.href = paymentData.data.paymentUrl;
       }
     } catch (error) {
-      console.error('VNPay error:', error);
+      console.error('VNPay error details:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
       alert(error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
     }
   };

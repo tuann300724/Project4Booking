@@ -19,6 +19,7 @@ const OrderSuccess = () => {
       setIsVNPaySuccess(true);
 
       try {
+        // Call the return endpoint with all VNPay parameters
         const response = await fetch(`http://localhost:8080/api/orders/payment/vnpay/return${location.search}`);
         if (response.ok) {
           const data = await response.json();

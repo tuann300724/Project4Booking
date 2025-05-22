@@ -108,7 +108,7 @@ const Header = () => {
                     <div className="w-8 h-8 bg-purple-600 rounded-full text-white flex items-center justify-center">
                       {user.username.charAt(0).toUpperCase()}
                     </div>
-                    <span className="hidden md:block font-medium">{user.username}</span>
+                    {/* <span className="hidden md:block font-medium">{user.username}</span> */}
                     <svg 
                       className="w-4 h-4" 
                       fill="none" 

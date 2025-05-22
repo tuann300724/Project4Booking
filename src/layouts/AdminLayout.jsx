@@ -16,6 +16,7 @@ const AdminLayout = () => {
     { path: '/admin/discounts', label: 'Mã giảm giá', icon: '🏷️' },
     { path: '/admin/users', label: 'Người dùng', icon: '👥' },
     { path: '/admin/revenue', label: 'Doanh thu', icon: '💰' },
+    { path: '/admin/chat', label: 'Chat', icon: '💬' },
   ];
 
   const handleLogout = () => {
@@ -70,7 +71,7 @@ const AdminLayout = () => {
                     {user?.username?.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <span className="font-medium">{user?.username}</span>
+                {/* <span className="font-medium">{user?.username}</span> */}
                 <FiChevronDown className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
@@ -91,6 +92,7 @@ const AdminLayout = () => {
                   >
                     Mã giảm giá của tôi
                   </Link>
+                  
                   <Link
                     to="/user/orders"
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-100"

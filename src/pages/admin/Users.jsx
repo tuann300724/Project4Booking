@@ -104,7 +104,7 @@ const Users = () => {
                       <div className="h-10 w-10 flex-shrink-0">
                         <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
                           <span className="text-purple-600 font-medium text-lg">
-                            {user.username?.charAt(0).toUpperCase()}
+                            {user.username}
                           </span>
                         </div>
                       </div>

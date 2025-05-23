@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useUser } from "../../context/UserContext";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
@@ -32,70 +32,90 @@ const ChatModal = ({ isOpen, onClose }) => {
             "Access-Control-Allow-Origin": "*",
           },
           debug: function (str) {
-            console.log("[WebSocket Debug] User:", str);
+            console.log("🔄 [User WebSocket]:", str);
           },
           reconnectDelay: 5000,
           heartbeatIncoming: 4000,
           heartbeatOutgoing: 4000,
           onConnect: () => {
-            console.log("[WebSocket] User Connected Successfully");
+            console.log("✅ [User] Connected Successfully");
 
-            // Chỉ subscribe vào 1 destination chính xác
-            const userDestination = `/user/${user.id}/queue/messages`;
-            console.log(`[WebSocket] Subscribing to ${userDestination}`);
+            // Subscribe to all relevant channels
+            const subscriptions = [
+              // Private channel cho user
+              {
+                destination: `/user/${user.id}/queue/private`,
+                callback: (message) => {
+                  console.log("📨 [User] Private message received:", message);
+                  onMessageReceived(message);
+                },
+              },
+              // Private channel cho admin
+              {
+                destination: `/user/1/queue/private`,
+                callback: (message) => {
+                  console.log("📨 [User] Admin message received:", message);
+                  onMessageReceived(message);
+                },
+              },
+              // Public channel
+              {
+                destination: "/topic/messages",
+                callback: (message) => {
+                  console.log("📨 [User] Public message received:", message);
+                  onMessageReceived(message);
+                },
+              },
+            ];
 
-            client.subscribe(userDestination, (message) => {
-              console.log(
-                `[WebSocket] Received message on ${userDestination}:`,
-                message
-              );
-              onMessageReceived(message);
+            // Subscribe to all channels
+            subscriptions.forEach((sub) => {
+              try {
+                const subscription = client.subscribe(
+                  sub.destination,
+                  sub.callback
+                );
+                console.log(
+                  `✅ [User] Subscribed to ${sub.destination}`,
+                  subscription
+                );
+              } catch (error) {
+                console.error(
+                  `❌ [User] Failed to subscribe to ${sub.destination}:`,
+                  error
+                );
+              }
             });
 
-            // Thêm subscription đến topic chung nếu cần
-            client.subscribe("/topic/public", (message) => {
-              console.log("[WebSocket] Received public message:", message);
-              onMessageReceived(message);
-            });
-
+            // After connection is established, load existing messages
             loadMessages();
           },
           onDisconnect: () => {
-            console.log(
-              "[WebSocket] User Disconnected - Attempting immediate reconnection"
-            );
+            console.log("❌ [User] Disconnected");
             if (isOpen && user) {
-              console.log(
-                "[WebSocket] Chat is open and user exists, reconnecting..."
-              );
-              client.activate();
+              setTimeout(() => {
+                console.log("🔄 [User] Reconnecting...");
+                setupWebSocket();
+              }, 5000);
             }
           },
           onStompError: (frame) => {
-            console.error("[WebSocket Error] User STOMP error:", frame);
-            console.log(
-              "[WebSocket] Attempting to reconnect after STOMP error"
-            );
+            console.error("❌ [User] STOMP error:", frame);
             if (isOpen && user) {
-              client.deactivate();
               setTimeout(() => {
-                console.log("[WebSocket] Reconnecting after error...");
-                client.activate();
-              }, 1000);
+                console.log("🔄 [User] Reconnecting after error...");
+                setupWebSocket();
+              }, 5000);
             }
           },
         });
 
         try {
-          console.log("[WebSocket] Attempting to activate connection...");
+          console.log("🔄 [User] Activating connection...");
           client.activate();
-          console.log("[WebSocket] Connection activated successfully");
           setStompClient(client);
         } catch (error) {
-          console.error(
-            "[WebSocket Error] Failed to activate connection:",
-            error
-          );
+          console.error("❌ [User] Activation failed:", error);
           setTimeout(setupWebSocket, 5000);
         }
       }
@@ -104,15 +124,28 @@ const ChatModal = ({ isOpen, onClose }) => {
     setupWebSocket();
 
     return () => {
-      if (client) {
+      if (client && client.connected) {
         try {
-          if (client.connected) {
-            client.unsubscribe(`/user/${user?.id}/queue/messages`);
-            client.unsubscribe("/topic/messages");
-            client.deactivate();
-          }
+          // Cleanup all subscriptions
+          [
+            `/user/${user?.id}/queue/private`,
+            `/user/1/queue/private`,
+            "/topic/messages",
+          ].forEach((destination) => {
+            try {
+              client.unsubscribe(destination);
+              console.log(`✅ [User] Unsubscribed from ${destination}`);
+            } catch (error) {
+              console.error(
+                `❌ [User] Error unsubscribing from ${destination}:`,
+                error
+              );
+            }
+          });
+          client.deactivate();
+          console.log("✅ [User] Connection cleaned up");
         } catch (error) {
-          console.error("Error cleaning up WebSocket:", error);
+          console.error("❌ [User] Cleanup error:", error);
         }
       }
     };
@@ -133,105 +166,171 @@ const ChatModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const onMessageReceived = (payload) => {
-    try {
-      console.log("[Message] Raw payload received:", payload);
-      console.log("[Message] Destination:", payload.headers.destination); // Thêm dòng này
+  const onMessageReceived = useCallback(
+    (payload) => {
+      try {
+        console.log("🔵 [Message Received] Raw payload:", payload);
+        const message = JSON.parse(payload.body);
+        console.log("🔵 [Message Received] Parsed message:", message);
 
-      const receivedMessage = JSON.parse(payload.body);
-      console.log("[Message] Parsed message:", receivedMessage);
-
-      // Xử lý mọi tin nhắn đến mà không kiểm tra adminId
-      setMessages((prev) => {
-        const exists = prev.some(
-          (m) =>
-            m.id === receivedMessage.id ||
-            (m.localId && m.localId === receivedMessage.localId)
+        // A message is relevant to this chat if:
+        // 1. The current user sent it to admin (senderId === user.id && receiverId === adminId)
+        // 2. The admin sent it to current user (senderId === adminId && receiverId === user.id)
+        const isMessageForThisChat = (
+          (message.senderId === user.id && message.receiverId === adminId) ||
+          (message.senderId === adminId && message.receiverId === user.id)
         );
-        if (!exists) {
-          console.log("[Message] Adding new message to chat");
-          const newMessages = [...prev, receivedMessage];
-          return newMessages.sort(
-            (a, b) =>
-              new Date(a.sentAt || Date.now()) -
-              new Date(b.sentAt || Date.now())
-          );
+
+        console.log("🔍 [Message Check] Relevance:", {
+          isMessageForThisChat,
+          messageDetails: {
+            senderId: message.senderId,
+            receiverId: message.receiverId,
+            userId: user.id,
+            adminId: adminId
+          }
+        });
+
+        if (!isMessageForThisChat) {
+          console.log("ℹ️ [Message Skipped] Not related to this chat:", message);
+          return;
         }
-        return prev;
-      });
 
-      setTimeout(scrollToBottom, 100);
-    } catch (error) {
-      console.error("[Message Error] Failed to process message:", error);
+        setMessages((prevMessages) => {
+          // Check for duplicate based on ID or localId
+          const isDuplicate = prevMessages.some(
+            (msg) =>
+              (message.id && msg.id === message.id) ||
+              (message.localId && msg.localId === message.localId)
+          );
+
+          if (isDuplicate) {
+            console.log("🔴 [Message Duplicate] Already exists:", message);
+            return prevMessages;
+          }
+
+          // Add new message and sort by time
+          const newMessages = [...prevMessages, message].sort((a, b) => {
+            const timeA = new Date(a.sentAt).getTime();
+            const timeB = new Date(b.sentAt).getTime();
+            return timeA - timeB;
+          });
+
+          console.log("✅ [Message Added] New message in chat:", message);
+          
+          // If it's an admin message, mark it as read
+          if (message.senderId === adminId) {
+            // You could call an API here to mark the message as read
+            console.log("✅ [Message Status] Marking admin message as read");
+          }
+
+          return newMessages;
+        });
+
+        // Scroll after adding message
+        setTimeout(scrollToBottom, 100);
+      } catch (error) {
+        console.error("❌ [Message Error] Failed to process:", error, error.stack);
+      }
+    },
+    [user, scrollToBottom]
+  );
+  const handleSendMessage = useCallback(
+    async (e) => {
+      e.preventDefault();
+      console.log("🟡 [Send Attempt] Starting send process...");
+
+      if (!message.trim() || !user || !stompClient) {
+        console.log("🔴 [Send Blocked] Missing requirements:", {
+          hasMessage: !!message.trim(),
+          messageContent: message,
+          hasUser: !!user,
+          userData: user,
+          hasStompClient: !!stompClient,
+          stompState: stompClient?.state,
+        });
+        return;
+      }
+
+      try {
+        const localId = Date.now().toString();
+        const messageData = {
+          senderId: user.id,
+          receiverId: adminId,
+          senderName: user.username,
+          receiverName: "Admin",
+          message: message.trim(),
+          sentAt: new Date().toISOString(),
+          localId: localId,
+          isRead: false,
+        };
+
+        console.log("🟡 [Send Prepare] Message data:", messageData);
+
+        // Kiểm tra kết nối
+        if (!stompClient.connected) {
+          throw new Error("WebSocket not connected");
+        }
+
+        // Gửi tin nhắn
+        stompClient.publish({
+          destination: "/app/chat.sendMessage",
+          body: JSON.stringify(messageData),
+          headers: {
+            "content-type": "application/json",
+            "sender-id": user.id.toString(),
+            "receiver-id": adminId.toString(),
+            "message-type": "chat",
+            "correlation-id": localId,
+          },
+        });
+        console.log("✅ [Send Success] Message published to WebSocket");
+
+        // Thêm tin nhắn vào state local
+        setMessages((prev) => {
+          const newMessages = [...prev, { ...messageData, pending: true }];
+          console.log("✅ [Send Update] Local messages updated:", newMessages);
+          return newMessages;
+        });
+
+        // Clear input
+        setMessage("");
+        console.log("✅ [Send Cleanup] Input cleared");
+
+        // Scroll to bottom
+        setTimeout(() => {
+          scrollToBottom();
+          console.log("✅ [Send UI] Scrolled to bottom");
+        }, 100);
+      } catch (error) {
+        console.error("❌ [Send Error] Failed to send message:", error);
+        console.error("❌ [Send Error] Stack trace:", error.stack);
+        // TODO: Thêm logic retry hoặc thông báo lỗi cho user
+      }
+    },
+    [message, stompClient, user]
+  );
+  const checkConnection = useCallback(() => {
+    if (stompClient) {
+      console.log("🔄 [Connection Check]", {
+        connected: stompClient.connected,
+        state: stompClient.state,
+        subscriptions: stompClient.subscriptions,
+        connectionHeaders: stompClient.connectHeaders,
+      });
+    } else {
+      console.log("⚠️ [Connection Check] No STOMP client available");
     }
-  };
+  }, [stompClient]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!message.trim() || !user || !stompClient) {
-      console.log("[Send] Missing requirements:", {
-        hasMessage: !!message.trim(),
-        hasUser: !!user,
-        hasStompClient: !!stompClient,
-      });
-      return;
-    }
-
-    try {
-      const localId = Date.now().toString();
-      const messageData = {
-        senderId: user.id,
-        receiverId: adminId,
-        senderName: user.username,
-        receiverName: "Admin",
-        message: message.trim(),
-        sentAt: new Date().toISOString(),
-        localId: localId,
-        isRead: false,
-      };
-
-      console.log("[Send] Preparing to send message:", messageData);
-
-      // Check WebSocket connection
-      console.log("[Send] WebSocket connected?", stompClient.connected); // Send message via WebSocket
-      console.log("[Send] Sending to destination /app/chat.sendMessage");
-      stompClient.publish({
-        destination: "/app/chat.sendMessage",
-        body: JSON.stringify(messageData),
-        headers: {
-          "content-type": "application/json",
-          "sender-id": user.id.toString(),
-          "receiver-id": adminId.toString(),
-        },
-      });
-      console.log("[Send] Message published to WebSocket");
-
-      // Add to local state
-      setMessages((prev) => {
-        const newMessages = [...prev, messageData];
-        console.log("[Send] Updated local messages:", newMessages);
-        return newMessages;
-      });
-      setMessage("");
-
-      // Scroll down
-      setTimeout(scrollToBottom, 100);
-    } catch (error) {
-      console.error("[Send Error] Failed to send message:", error);
-    }
-  };
-const checkConnection = () => {
-  if (stompClient) {
-    console.log('WebSocket connected:', stompClient.connected);
-    console.log('WebSocket state:', stompClient.state);
-  }
-};
-
-// Gọi hàm này khi cần kiểm tra
-useEffect(() => {
-  const interval = setInterval(checkConnection, 5000);
-  return () => clearInterval(interval);
-}, [stompClient]);
+  useEffect(() => {
+    const interval = setInterval(checkConnection, 5000);
+    console.log("🔄 [Connection Monitor] Started connection checking");
+    return () => {
+      clearInterval(interval);
+      console.log("🔄 [Connection Monitor] Stopped connection checking");
+    };
+  }, [stompClient, checkConnection]);
   if (!isOpen) return null;
 
   return (

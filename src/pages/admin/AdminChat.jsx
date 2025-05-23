@@ -181,28 +181,29 @@ const AdminChat = () => {
     } catch (error) {
       console.error('❌ [Admin] Error marking messages as read:', error);
     }
-  };
-  const onMessageReceived = useCallback((payload) => {
+  };  const onMessageReceived = useCallback((payload) => {
     try {
       console.log("🔵 [Admin Message Received] Raw payload:", payload);
       const message = JSON.parse(payload.body);
       console.log("🔵 [Admin Message Received] Parsed message:", message);
-      console.log("ℹ️ [Admin] Current selected user:", selectedUser);
 
       // Luôn cập nhật danh sách người dùng trước
       setUsers(prevUsers => {
-        console.log("🔄 [Admin] Updating users list with message:", message);
         return prevUsers.map(user => {
           if (user.id === message.senderId || user.id === message.receiverId) {
             const isCurrentChat = selectedUser?.id === user.id;
-            const updatedUser = {
+            console.log("🔄 [Admin] Updating user in list:", {
+              userId: user.id,
+              isCurrentChat,
+              currentUnread: user.unread
+            });
+            
+            return {
               ...user,
               lastMessage: message.message,
               unread: isCurrentChat ? 0 : (user.unread || 0) + 1,
               lastMessageTime: message.sentAt
             };
-            console.log("🔄 [Admin] Updated user data:", updatedUser);
-            return updatedUser;
           }
           return user;
         }).sort((a, b) => {
@@ -212,24 +213,28 @@ const AdminChat = () => {
         });
       });
 
-      // Always verify that the message involves selectedUser if we have one
+      // Kiểm tra và cập nhật tin nhắn trong khung chat
       if (selectedUser) {
-        console.log("🔍 [Admin] Checking message relevance:", {
+        console.log("🔍 [Admin] Checking message for chat window:", {
           selectedUserId: selectedUser.id,
-          senderId: message.senderId,
-          receiverId: message.receiverId
+          messageUserId: message.senderId,
+          messageReceiverId: message.receiverId
         });
 
-        // Check if this message belongs to the current chat
-        const isRelevantToCurrentChat = 
-          message.senderId === selectedUser.id || 
-          message.receiverId === selectedUser.id;
+        // Điều kiện để hiển thị tin nhắn trong khung chat:
+        // 1. Tin nhắn được gửi từ user đang được chọn đến admin
+        // 2. Tin nhắn được gửi từ admin đến user đang được chọn
+        console.log("message.senderId:", message.senderId);
+        console.log("message.receiverId:", message.receiverId);
+        console.log("selectedUser.id:", selectedUser.id);
+        console.log("adminId:", adminId);
+        const isMessageForCurrentChat = 
+          (message.senderId === selectedUser.id && message.receiverId === adminId) ||
+          (message.senderId === adminId && message.receiverId === selectedUser.id);
 
-        if (isRelevantToCurrentChat) {
-          console.log("✅ [Admin] Message is for current chat. Adding to messages.");
-          
+        if (isMessageForCurrentChat) {
           setMessages(prev => {
-            // Check for duplicate
+            // Kiểm tra tin nhắn trùng lặp
             const isDuplicate = prev.some(msg => 
               (message.id && msg.id === message.id) ||
               (message.localId && msg.localId === message.localId)
@@ -240,34 +245,27 @@ const AdminChat = () => {
               return prev;
             }
 
-            // Add message and sort
+            console.log("✅ [Admin] Adding new message to chat window");
             const newMessages = [...prev, message].sort((a, b) => 
               new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
             );
 
-            console.log("✅ [Admin] Messages updated:", newMessages);
+            // Scroll to bottom after adding new message
             setTimeout(scrollToBottom, 100);
+            
             return newMessages;
           });
 
-          // If we received a message from the selected user, mark it as read
+          // Đánh dấu đã đọc nếu tin nhắn từ user đang chọn
           if (message.senderId === selectedUser.id) {
             markMessagesAsRead(selectedUser.id);
           }
-        } else {
-          console.log("ℹ️ [Admin] Message not for current chat:", {
-            selectedUserId: selectedUser.id,
-            messageInfo: {
-              senderId: message.senderId,
-              receiverId: message.receiverId
-            }
-          });
         }
-      } else {
-        console.log("ℹ️ [Admin] No user selected, skipping message display");
       }
+      
     } catch (error) {
-      console.error("❌ [Admin Error] Failed to process message:", error, error.stack);
+      console.error("❌ [Admin Error] Failed to process message:", error);
+      console.error("❌ [Admin Error] Stack trace:", error.stack);
     }
   }, [selectedUser, scrollToBottom, markMessagesAsRead]);
 
@@ -300,26 +298,12 @@ const AdminChat = () => {
       };
 
       console.log("🟡 [Admin Send] Message data:", messageData);
-      console.log("🟡 [Admin Send] WebSocket state:", {
-        connected: stompClient.connected,
-        state: stompClient.state
-      });
 
-      // Thêm tin nhắn vào state ngay lập tức
-      setMessages(prev => {
-        console.log("✅ [Admin Send] Adding message to local state");
-        return [...prev, messageData];
-      });
-      
-      setNewMessage("");
-      console.log("✅ [Admin Send] Input cleared");
-      
-      setTimeout(() => {
-        scrollToBottom();
-        console.log("✅ [Admin Send] Scrolled to bottom");
-      }, 100);
+      // Gửi tin nhắn qua WebSocket trước
+      if (!stompClient.connected) {
+        throw new Error("WebSocket not connected");
+      }
 
-      // Gửi tin nhắn qua WebSocket
       stompClient.publish({
         destination: '/app/chat.sendMessage',
         body: JSON.stringify(messageData),
@@ -329,19 +313,37 @@ const AdminChat = () => {
       });
       console.log("✅ [Admin Send] Message published to WebSocket");
 
-      // Cập nhật last message trong list user
+      // Sau khi gửi thành công, cập nhật UI
+      // 1. Thêm tin nhắn vào khung chat
+      setMessages(prev => {
+        const newMessages = [...prev, messageData];
+        console.log("✅ [Admin Send] Messages updated:", newMessages);
+        return newMessages;
+      });
+
+      // 2. Cập nhật last message trong list user
       setUsers(prevUsers => {
-        console.log("✅ [Admin Send] Updating users list with new message");
         return prevUsers.map(user => {
           if (user.id === selectedUser.id) {
             return {
               ...user,
-              lastMessage: messageData.message
+              lastMessage: messageData.message,
+              lastMessageTime: messageData.sentAt
             };
           }
           return user;
+        }).sort((a, b) => {
+          const timeA = a.lastMessageTime ? new Date(a.lastMessageTime) : new Date(0);
+          const timeB = b.lastMessageTime ? new Date(b.lastMessageTime) : new Date(0);
+          return timeB - timeA;
         });
       });
+      
+      // 3. Clear input và scroll
+      setNewMessage("");
+      setTimeout(scrollToBottom, 100);
+      console.log("✅ [Admin Send] UI updated");
+
     } catch (error) {
       console.error("❌ [Admin Send Error] Failed to send message:", error);
       console.error("❌ [Admin Send Error] Stack trace:", error.stack);

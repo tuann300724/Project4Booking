@@ -13,6 +13,7 @@ const AdminChat = () => {
   const [error, setError] = useState(null);
   const adminId = 1;
   const messagesEndRef = useRef(null);
+  const selectedUserRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -21,6 +22,19 @@ const AdminChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Update selectedUserRef whenever selectedUser changes
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+    
+    if (selectedUser) {
+      console.log("🔄 [Admin] Selected user changed:", selectedUser.username);
+      loadMessages(selectedUser.id).then(() => {
+        console.log("🔄 [Admin] Marking messages as read after loading");
+        markMessagesAsRead(selectedUser.id);
+      });
+    }
+  }, [selectedUser]);
 
   useEffect(() => {
     const socket = new SockJS('http://localhost:8080/ws');
@@ -34,16 +48,22 @@ const AdminChat = () => {
       },
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-      onConnect: () => {
-        console.log('✅ [Admin] Connected to WebSocket');
+      heartbeatOutgoing: 4000,      onConnect: () => {
+        console.log('✅ [Admin] Connected to WebSockets');
         
-        // Subscribe to private messages
+        // Subscribe to admin's private messages
         const privateSubscription = client.subscribe(`/user/${adminId}/queue/private`, (message) => {
           console.log('📨 [Admin] Received private message:', message);
           onMessageReceived(message);
         });
         console.log('✅ [Admin] Subscribed to private messages', privateSubscription);
+
+        // Subscribe to all user messages
+        const userMessagesSubscription = client.subscribe('/user/queue/messages', (message) => {
+          console.log('📨 [Admin] Received user message:', message);
+          onMessageReceived(message);
+        });
+        console.log('✅ [Admin] Subscribed to user messages', userMessagesSubscription);
 
         // Subscribe to public channel
         const publicSubscription = client.subscribe('/topic/messages', (message) => {
@@ -68,13 +88,18 @@ const AdminChat = () => {
       setStompClient(client);
     } catch (error) {
       console.error('❌ [Admin] Connection failed:', error);
-    }
-
-    return () => {
+    }    return () => {
       if (client && client.connected) {
         try {
-          client.unsubscribe(`/user/${adminId}/queue/private`);
-          client.unsubscribe('/topic/messages');
+          // Cleanup all subscriptions
+          [`/user/${adminId}/queue/private`, '/user/queue/messages', '/topic/messages'].forEach(destination => {
+            try {
+              client.unsubscribe(destination);
+              console.log(`✅ [Admin] Unsubscribed from ${destination}`);
+            } catch (error) {
+              console.error(`❌ [Admin] Error unsubscribing from ${destination}:`, error);
+            }
+          });
           client.deactivate();
           console.log('✅ [Admin] Cleaned up WebSocket connection');
         } catch (error) {
@@ -82,8 +107,9 @@ const AdminChat = () => {
         }
       }
     };
-  }, []);
-  useEffect(() => {
+  }, []);  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+    
     if (selectedUser) {
       console.log("🔄 [Admin] Selected user changed:", selectedUser.username);
       
@@ -186,12 +212,12 @@ const AdminChat = () => {
       console.log("🔵 [Admin Message Received] Raw payload:", payload);
       const message = JSON.parse(payload.body);
       console.log("🔵 [Admin Message Received] Parsed message:", message);
+      const currentUser = selectedUserRef.current;
 
-      // Luôn cập nhật danh sách người dùng trước
       setUsers(prevUsers => {
         return prevUsers.map(user => {
           if (user.id === message.senderId || user.id === message.receiverId) {
-            const isCurrentChat = selectedUser?.id === user.id;
+            const isCurrentChat = currentUser?.id === user.id;
             console.log("🔄 [Admin] Updating user in list:", {
               userId: user.id,
               isCurrentChat,
@@ -213,28 +239,19 @@ const AdminChat = () => {
         });
       });
 
-      // Kiểm tra và cập nhật tin nhắn trong khung chat
-      if (selectedUser) {
+      if (currentUser) {
         console.log("🔍 [Admin] Checking message for chat window:", {
-          selectedUserId: selectedUser.id,
+          selectedUserId: currentUser.id,
           messageUserId: message.senderId,
           messageReceiverId: message.receiverId
         });
 
-        // Điều kiện để hiển thị tin nhắn trong khung chat:
-        // 1. Tin nhắn được gửi từ user đang được chọn đến admin
-        // 2. Tin nhắn được gửi từ admin đến user đang được chọn
-        console.log("message.senderId:", message.senderId);
-        console.log("message.receiverId:", message.receiverId);
-        console.log("selectedUser.id:", selectedUser.id);
-        console.log("adminId:", adminId);
         const isMessageForCurrentChat = 
-          (message.senderId === selectedUser.id && message.receiverId === adminId) ||
-          (message.senderId === adminId && message.receiverId === selectedUser.id);
+          (message.senderId === currentUser.id && message.receiverId === adminId) ||
+          (message.senderId === adminId && message.receiverId === currentUser.id);
 
         if (isMessageForCurrentChat) {
           setMessages(prev => {
-            // Kiểm tra tin nhắn trùng lặp
             const isDuplicate = prev.some(msg => 
               (message.id && msg.id === message.id) ||
               (message.localId && msg.localId === message.localId)
@@ -250,15 +267,13 @@ const AdminChat = () => {
               new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime()
             );
 
-            // Scroll to bottom after adding new message
             setTimeout(scrollToBottom, 100);
             
             return newMessages;
           });
 
-          // Đánh dấu đã đọc nếu tin nhắn từ user đang chọn
-          if (message.senderId === selectedUser.id) {
-            markMessagesAsRead(selectedUser.id);
+          if (message.senderId === currentUser.id) {
+            markMessagesAsRead(currentUser.id);
           }
         }
       }
@@ -267,17 +282,18 @@ const AdminChat = () => {
       console.error("❌ [Admin Error] Failed to process message:", error);
       console.error("❌ [Admin Error] Stack trace:", error.stack);
     }
-  }, [selectedUser, scrollToBottom, markMessagesAsRead]);
+  }, [scrollToBottom, markMessagesAsRead]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     console.log("🟡 [Admin Send] Starting send process...");
 
-    if (!newMessage.trim() || !selectedUser || !stompClient) {
+    const currentUser = selectedUserRef.current;
+    if (!newMessage.trim() || !currentUser || !stompClient) {
       console.log("🔴 [Admin Send Blocked] Missing requirements:", {
         hasMessage: !!newMessage.trim(),
         messageContent: newMessage,
-        hasSelectedUser: !!selectedUser,
+        hasSelectedUser: !!currentUser,
         hasStompClient: !!stompClient,
         stompState: stompClient?.state
       });
@@ -285,12 +301,12 @@ const AdminChat = () => {
     }
 
     try {
-      const localId = Date.now().toString();
+      const localId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const messageData = {
         senderId: adminId,
-        receiverId: selectedUser.id,
+        receiverId: currentUser.id,
         senderName: 'Admin',
-        receiverName: selectedUser.username,
+        receiverName: currentUser.username,
         message: newMessage.trim(),
         sentAt: new Date().toISOString(),
         localId: localId,
@@ -299,7 +315,6 @@ const AdminChat = () => {
 
       console.log("🟡 [Admin Send] Message data:", messageData);
 
-      // Gửi tin nhắn qua WebSocket trước
       if (!stompClient.connected) {
         throw new Error("WebSocket not connected");
       }
@@ -313,18 +328,15 @@ const AdminChat = () => {
       });
       console.log("✅ [Admin Send] Message published to WebSocket");
 
-      // Sau khi gửi thành công, cập nhật UI
-      // 1. Thêm tin nhắn vào khung chat
       setMessages(prev => {
         const newMessages = [...prev, messageData];
         console.log("✅ [Admin Send] Messages updated:", newMessages);
         return newMessages;
       });
 
-      // 2. Cập nhật last message trong list user
       setUsers(prevUsers => {
         return prevUsers.map(user => {
-          if (user.id === selectedUser.id) {
+          if (user.id === currentUser.id) {
             return {
               ...user,
               lastMessage: messageData.message,
@@ -339,7 +351,6 @@ const AdminChat = () => {
         });
       });
       
-      // 3. Clear input và scroll
       setNewMessage("");
       setTimeout(scrollToBottom, 100);
       console.log("✅ [Admin Send] UI updated");
@@ -347,9 +358,22 @@ const AdminChat = () => {
     } catch (error) {
       console.error("❌ [Admin Send Error] Failed to send message:", error);
       console.error("❌ [Admin Send Error] Stack trace:", error.stack);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          senderId: adminId,
+          message: "Không thể gửi tin nhắn. Vui lòng thử lại.",
+          sentAt: new Date().toISOString(),
+          error: true
+        }
+      ]);
     }
   };
 
+  useEffect(() => {
+    console.log("MESSAGES:", messages);
+  }, [messages]);
   return (
     <div className="container mx-auto p-4">
       <div className="bg-white rounded-lg shadow-lg">

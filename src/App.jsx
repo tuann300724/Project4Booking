@@ -18,6 +18,7 @@ import Discounts from "./pages/admin/Discounts";
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import Users from './pages/admin/Users';
 import Revenue from './pages/admin/Revenue';
+import Categories from './pages/admin/Categories';
 import Card from './pages/Card';
 import Checkout from './pages/Checkout';
 import OrderSuccess from './pages/OrderSuccess';
@@ -73,8 +74,8 @@ function App() {
                   <Route path="products/new" element={<ProductForm />} />
                   <Route path="payments/:id" element={<PaymentDetail />} />
                   <Route path="products/edit/:id" element={<EditProduct />} />
-                  <Route path="users" element={<Users />} />
-                  <Route path="revenue" element={<Revenue />} />
+                  <Route path="users" element={<Users />} />                  <Route path="revenue" element={<Revenue />} />
+                  <Route path="categories" element={<Categories />} />
                 </Route>
               </Route>
             </Routes>

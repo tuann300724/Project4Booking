@@ -8,11 +8,11 @@ const AdminLayout = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { user, logout } = useUser();
   const navigate = useNavigate();
-
   const menuItems = [
     { path: '/admin', label: 'Dashboard', icon: '📊' },
     { path: '/admin/orders', label: 'Đơn hàng', icon: '📦' },
     { path: '/admin/products', label: 'Sản phẩm', icon: '🛍️' },
+    { path: '/admin/categories', label: 'Danh mục', icon: '📑' },
     { path: '/admin/discounts', label: 'Mã giảm giá', icon: '🏷️' },
     { path: '/admin/users', label: 'Người dùng', icon: '👥' },
     { path: '/admin/revenue', label: 'Doanh thu', icon: '💰' },

@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import axios from "axios";
 
+// Cấu hình mặc định cho axios
+axios.defaults.headers.common['Content-Type'] = 'application/json;charset=utf-8';
+axios.defaults.headers.common['Accept'] = 'application/json';
+
 const UserProfile = () => {
   const navigate = useNavigate();
   const { user, setUser } = useUser();
@@ -72,9 +76,7 @@ const UserProfile = () => {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    setSuccess(false);
-
-    try {
+    setSuccess(false);    try {
       // Update user profile
       const response = await axios.put(
         `http://localhost:8080/api/users/${user.id}`,
@@ -83,6 +85,11 @@ const UserProfile = () => {
           email: formData.email,
           phone: formData.phone,
           address: formData.address,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json; charset=UTF-8'
+          }
         }
       );
 
@@ -241,6 +248,8 @@ const UserProfile = () => {
                       type="email"
                       id="email"
                       name="email"
+                      readOnly
+                      disabled
                       value={formData.email}
                       onChange={handleChange}
                       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"

@@ -184,49 +184,45 @@ const UserOrderDetail = () => {
     }
   };
 
-  const handlePayAgain = async () => {
+  const handlePayAgain = async (method) => {
     try {
-      // Check if order is already paid
       if (order.paymentStatus === 'Đã thanh toán') {
         alert('Đơn hàng này đã được thanh toán!');
         return;
       }
 
-      // Get VNPay payment URL using axios
-      const response = await axios({
-        method: 'post',
-        url: `http://localhost:8080/api/orders/${order.id}/retry-payment`,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-
-      const paymentData = response.data;
-      if (!paymentData.paymentUrl) {
-        throw new Error('Không nhận được URL thanh toán');
+      let paymentUrl = '';
+      if (method === 'vnpay') {
+        // Gọi API lấy lại link VNPay
+        const response = await axios.post(
+          `http://localhost:8080/api/orders/${order.id}/retry-payment`,
+          {},
+          { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } }
+        );
+        paymentUrl = response.data.paymentUrl;
+      } else if (method === 'paypal') {
+        // Gọi API lấy lại link PayPal
+        const response = await axios.post(
+          `http://localhost:8080/api/orders/${order.id}/retry-payment/paypal`,
+          {
+            returnUrl: `http://localhost:5173/order-success`,
+            cancelUrl: `http://localhost:5173/user/orders/${order.id}`
+          },
+          { headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' } }
+        );
+        paymentUrl = response.data.data?.paymentUrl;
       }
 
-      // Save order to localStorage
+      if (!paymentUrl) throw new Error('Không nhận được URL thanh toán');
+
       localStorage.setItem('lastOrder', JSON.stringify({
         ...order,
         orderItems: orderItems
       }));
 
-      // Open VNPay in new window
-      const paymentWindow = window.open(paymentData.paymentUrl, '_blank');
-      if (paymentWindow) {
-        paymentWindow.focus();
-      } else {
-        // Fallback if popup is blocked
-        window.location.href = paymentData.paymentUrl;
-      }
+      // Redirect trực tiếp thay vì mở tab mới
+      window.location.href = paymentUrl;
     } catch (error) {
-      console.error('VNPay error:', error);
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-      }
       alert(error.response?.data || error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
     }
   };
@@ -605,21 +601,17 @@ const UserOrderDetail = () => {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
-            {order.paymentMethod === 'vnpay' && order.paymentStatus === 'Chờ thanh toán' && (
+            {['vnpay', 'paypal'].includes(order.paymentMethod) && order.paymentStatus === 'Chờ thanh toán' && (
               <div className="flex flex-col items-center space-y-2">
                 {order.expiredAt && (
                   <div className="text-sm text-gray-600 mb-2">
-                    Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>
-                      {formatCountdown()}
-                    </span>
+                    Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>{formatCountdown()}</span>
                   </div>
                 )}
                 <button 
-                  onClick={handlePayAgain}
+                  onClick={() => handlePayAgain(order.paymentMethod)}
                   disabled={!timeLeft}
-                  className={`px-6 py-2 bg-blue-600 text-white rounded-md transition-colors flex items-center justify-center ${
-                    !timeLeft ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
-                  }`}
+                  className={`px-6 py-2 bg-blue-600 text-white rounded-md transition-colors flex items-center justify-center ${!timeLeft ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />

@@ -37,16 +37,20 @@ const Checkout = () => {
         const quantities = {};
         for (const item of cart) {
           let sizeId = item.size;
+          let sizeName = item.size;
           if (typeof sizeId === 'string') {
             const found = sizesData.find(s => s.name === sizeId);
             if (found) sizeId = found.id;
+          } else if (typeof sizeId === 'object' && sizeId !== null) {
+            sizeName = sizeId.name;
+            sizeId = sizeId.id;
           }
           try {
-            const quantity = await checkProductQuantity(item.id, sizeId);
-            quantities[`${item.id}-${sizeId}`] = quantity;
+            const quantity = await checkProductQuantity(item.product?.id || item.id, sizeName);
+            quantities[`${item.product?.id || item.id}-${sizeId}`] = quantity;
           } catch (error) {
-            console.error(`Error checking quantity for product ${item.id}, size ${sizeId}:`, error);
-            quantities[`${item.id}-${sizeId}`] = 0;
+            console.error(`Error checking quantity for product ${item.product?.id || item.id}, size ${sizeName}:`, error);
+            quantities[`${item.product?.id || item.id}-${sizeId}`] = 0;
           }
         }
         setProductQuantities(quantities);
@@ -162,14 +166,27 @@ const Checkout = () => {
     setIsSubmitting(true);
 
     // Kiểm tra số lượng tồn kho trước khi đặt hàng
+    console.log('productQuantities:', productQuantities); // Debug log
     for (const item of cart) {
       let sizeId = item.size;
       if (typeof sizeId === 'string') {
         const found = sizes.find(s => s.name === sizeId);
         if (found) sizeId = found.id;
+      } else if (typeof sizeId === 'object' && sizeId !== null) {
+        sizeId = sizeId.id;
       }
       
-      const availableQuantity = productQuantities[`${item.product?.id || item.id}-${sizeId}`] || 0;
+      const key = `${item.product?.id || item.id}-${sizeId}`;
+      const availableQuantity = productQuantities[key] || 0;
+      
+      console.log(`Checking item:`, {
+        productId: item.product?.id || item.id,
+        sizeId: sizeId,
+        sizeName: item.size?.name || item.size,
+        requestedQuantity: item.quantity,
+        availableQuantity: availableQuantity,
+        key: key
+      });
       
       if (item.quantity > availableQuantity) {
         setIsSubmitting(false);
@@ -214,7 +231,8 @@ const Checkout = () => {
     const orderData = {
       userId: userId || 1,
       total: calculateDiscountedTotal(),
-      paymentMethod: formData.paymentMethod === 'cod' ? 'cash' : 'vnpay',
+      paymentMethod: formData.paymentMethod === 'cod' ? 'cash' : 
+                    formData.paymentMethod === 'vnpay' ? 'vnpay' : 'paypal',
       paymentStatus: formData.paymentMethod === 'cod' ? 'Thanh toán khi nhận hàng' : 'Chờ thanh toán',
       status: 'Đang xử lý',
       receiverName: formData.fullName,
@@ -229,6 +247,8 @@ const Checkout = () => {
     try {
       if (formData.paymentMethod === 'vnpay') {
         await handleVNPayPayment(orderData);
+      } else if (formData.paymentMethod === 'paypal') {
+        await handlePayPalPayment(orderData);
       } else {
         await handleCODPayment(orderData);
       }
@@ -331,6 +351,93 @@ const Checkout = () => {
     }
   };
 
+  const handlePayPalPayment = async (orderData) => {
+    try {
+      // Create order first
+      const res = await fetch('http://localhost:8080/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.text();
+        throw new Error(`Không thể tạo đơn hàng: ${errorData}`);
+      }
+
+      const order = await res.json();
+      
+      if (!order || !order.id || !order.total) {
+        throw new Error('Dữ liệu đơn hàng không hợp lệ');
+      }
+
+      // For PayPal, we'll decrease voucher count after payment is successful
+      // Store voucher info in localStorage to use it after payment return
+      if (isUserVoucher && appliedDiscount?.code && user?.id) {
+        localStorage.setItem('pendingVoucher', JSON.stringify({
+          userId: user.id,
+          code: appliedDiscount.code
+        }));
+      }
+
+      // Get PayPal payment URL
+      const paymentRes = await fetch(`http://localhost:8080/api/orders/${order.id}/payment/paypal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          returnUrl: `http://localhost:5173/order-success`,
+          cancelUrl: `http://localhost:5173/checkout`
+        })
+      });
+
+      if (!paymentRes.ok) {
+        const errorData = await paymentRes.text();
+        console.error('PayPal payment response error:', errorData);
+        throw new Error(`Không thể tạo thanh toán PayPal: ${errorData}`);
+      }
+
+      const paymentData = await paymentRes.json();
+      console.log('PayPal payment response:', paymentData); // Debug log
+
+      if (!paymentData.success || !paymentData.data?.paymentUrl) {
+        console.error('Invalid payment data:', paymentData);
+        throw new Error('Không nhận được URL thanh toán từ PayPal');
+      }
+
+      // Save order to localStorage and redirect to PayPal
+      localStorage.setItem('lastOrder', JSON.stringify({
+        ...order,
+        orderItems: orderData.orderItems,
+        paymentMethod: 'paypal'
+      }));
+      clearCart();
+      
+      // Open PayPal in new window and handle the return URL
+      const paymentWindow = window.open(paymentData.data.paymentUrl, '_blank');
+      if (paymentWindow) {
+        paymentWindow.focus();
+        // Add event listener to handle window close
+        const checkWindow = setInterval(() => {
+          if (paymentWindow.closed) {
+            clearInterval(checkWindow);
+            // Redirect to OrderSuccess page
+            navigate('/order-success');
+          }
+        }, 1000);
+      } else {
+        // Fallback if popup is blocked - redirect directly
+        window.location.href = paymentData.data.paymentUrl;
+      }
+    } catch (error) {
+      console.error('PayPal error details:', error);
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
+      alert(error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
+    }
+  };
+
   const handleCODPayment = async (orderData) => {
     try {
       const res = await fetch('http://localhost:8080/api/orders', {
@@ -340,7 +447,8 @@ const Checkout = () => {
       });
 
       if (!res.ok) {
-        throw new Error('Đặt hàng thất bại');
+        const errorData = await res.text();
+        throw new Error(`Không thể tạo đơn hàng: ${errorData}`);
       }
 
       const order = await res.json();
@@ -375,21 +483,9 @@ const Checkout = () => {
   };
 
   const handleQuantityChange = async (item, newQuantity) => {
-    if (newQuantity < 1) return;
-
-    let sizeId = item.size?.id || item.size;
-    if (typeof sizeId === 'string') {
-      const found = sizes.find(s => s.name === sizeId);
-      if (found) sizeId = found.id;
-    }
-
-    const availableQuantity = productQuantities[`${item.product?.id || item.id}-${sizeId}`] || 0;
-    
-    if (newQuantity > availableQuantity) {
-      enqueueSnackbar(`Chỉ còn ${availableQuantity} sản phẩm trong kho`, { variant: 'error' });
+    if (newQuantity <= 0) {
       return;
     }
-
     updateQuantity(item.id, newQuantity);
   };
 
@@ -475,6 +571,7 @@ const Checkout = () => {
                 >
                   <option value="cod">Thanh toán bằng tiền mặt (COD)</option>
                   <option value="vnpay">VNPay</option>
+                  <option value="paypal">PayPal</option>
                 </select>
               </div>
 
@@ -498,10 +595,10 @@ const Checkout = () => {
                     const found = sizes.find(s => s.name === sizeId);
                     if (found) sizeId = found.id;
                   }
-                  const availableQuantity = productQuantities[`${item.id}-${sizeId}`] || 0;
+                  const availableQuantity = productQuantities[`${item.product?.id || item.id}-${sizeId}`] || 0;
                   
                   return (
-                    <div key={`${item.id}-${item.size}`} className="flex items-center">
+                    <div key={`${item.product?.id || item.id}-${item.size}`} className="flex items-center">
                       <div className="relative w-16 h-16 flex-shrink-0">
                         <img
                           src={item.product?.image || 'https://placehold.co/200x200?text=No+Image'}

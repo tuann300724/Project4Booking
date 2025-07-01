@@ -11,21 +11,38 @@ const OrderSuccess = () => {
   const [timeLeft, setTimeLeft] = useState(null);
 
  useEffect(() => {
-  const fetchVNPayResult = async () => {
+  const fetchResult = async () => {
     const urlParams = new URLSearchParams(location.search);
+    const paymentId = urlParams.get('paymentId');
+    const payerId = urlParams.get('PayerID');
+    const orderId = urlParams.get('orderId');
+
+    if (paymentId && payerId && orderId) {
+      try {
+        const response = await fetch(`http://localhost:8080/api/orders/payment/paypal/return?paymentId=${paymentId}&PayerID=${payerId}&orderId=${orderId}`);
+        const data = await response.json();
+        if (data.success && data.data?.order) {
+          setOrder(data.data.order);
+        } else {
+          setOrder(null);
+        }
+      } catch (error) {
+        setOrder(null);
+      }
+      return;
+    }
+
+    // Xử lý callback VNPay
     const responseCode = urlParams.get('vnp_ResponseCode');
-    
     if (responseCode === '00') {
       setIsVNPaySuccess(true);
 
       try {
-        // Call the return endpoint with all VNPay parameters
         const response = await fetch(`http://localhost:8080/api/orders/payment/vnpay/return${location.search}`);
         if (response.ok) {
           const data = await response.json();
-          console.log('VNPay return data:', data);
-          setOrder(data.order); // set đơn hàng luôn từ response API
-          
+          setOrder(data.order);
+
           // Xử lý giảm voucher
           const pendingVoucher = localStorage.getItem('pendingVoucher');
           if (pendingVoucher && !voucherProcessed) {
@@ -36,27 +53,25 @@ const OrderSuccess = () => {
             });
 
             if (decreaseRes.ok) {
-              console.log('Voucher đã giảm số lượng');
               localStorage.removeItem('pendingVoucher');
               setVoucherProcessed(true);
             }
           }
-        } else {
-          console.error('Lỗi khi gọi /payment/vnpay/return');
         }
       } catch (error) {
-        console.error('Lỗi kết nối tới VNPay return:', error);
+        // handle error
       }
-    } else {
-      // fallback nếu không phải từ VNPay
-      const savedOrder = localStorage.getItem('lastOrder');
-      if (savedOrder) {
-        setOrder(JSON.parse(savedOrder));
-      }
+      return;
+    }
+
+    // fallback nếu không phải từ VNPay hoặc PayPal
+    const savedOrder = localStorage.getItem('lastOrder');
+    if (savedOrder) {
+      setOrder(JSON.parse(savedOrder));
     }
   };
 
-  fetchVNPayResult();
+  fetchResult();
 }, [location.search, voucherProcessed]);
   // Countdown timer effect
   useEffect(() => {
@@ -214,7 +229,7 @@ const OrderSuccess = () => {
                   <p className="text-gray-800">Phương thức: <span className="font-medium">{getPaymentMethodText(order.paymentMethod)}</span></p>
                   <p className="text-gray-800">Tổng tiền: <span className="font-medium text-purple-600">{formatCurrency(order.total)}</span></p>
                   <p className="text-gray-800">Trạng thái: <span className={`font-medium ${paymentStatus.color}`}>{paymentStatus.text}</span></p>
-                  {order.paymentMethod === 'vnpay' && order.expiredAt && order.paymentStatus != "Đã thanh toán" ? (
+                  {['vnpay', 'paypal'].includes(order.paymentMethod) && order.expiredAt && order.paymentStatus !== "Đã thanh toán" ? (
                     <p className="text-gray-800 mt-2">
                       Thời gian thanh toán: <span className={`font-medium ${timeLeft ? 'text-red-600' : 'text-gray-600'}`}>{formatCountdown()}</span>
                     </p>

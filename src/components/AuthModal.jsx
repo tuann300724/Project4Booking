@@ -54,20 +54,18 @@ const AuthModal = ({ isOpen, onClose, initialMode = 'login' }) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    
+
     try {
-      const response = await axios.post('http://localhost:8080/api/users/register', { 
-        username, 
-        email, 
-        password 
+      const response = await axios.post('http://localhost:8080/api/users/register', {
+        username,
+        email,
+        password
       });
-      
-      setSuccessMsg('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
-      setTimeout(() => {
-        setIsLoginMode(true);
-        resetForm();
-        setSuccessMsg('');
-      }, 2000);
+      setSuccessMsg('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
+      // Không tự động chuyển sang login, chỉ reset form
+      resetForm();
+      // Nếu muốn tự động chuyển sang login sau vài giây, bỏ comment dòng dưới:
+      setTimeout(() => { setIsLoginMode(true); setSuccessMsg(''); }, 4000);
     } catch (err) {
       setError(err.response?.data || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {

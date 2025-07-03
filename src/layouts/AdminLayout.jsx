@@ -14,6 +14,7 @@ const AdminLayout = () => {
     { path: '/admin/products', label: 'Sản phẩm', icon: '🛍️' },
     { path: '/admin/categories', label: 'Danh mục', icon: '📑' },
     { path: '/admin/discounts', label: 'Mã giảm giá', icon: '🏷️' },
+    { path: '/admin/prizes', label: 'Vòng quay', icon: '🎡' },
     { path: '/admin/users', label: 'Người dùng', icon: '👥' },
     { path: '/admin/revenue', label: 'Doanh thu', icon: '💰' },
     { path: '/admin/chat', label: 'Chat', icon: '💬' },
@@ -131,4 +132,4 @@ const AdminLayout = () => {
   );
 };
 
-export default AdminLayout; 
+export default AdminLayout;

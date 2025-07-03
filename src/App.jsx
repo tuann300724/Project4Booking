@@ -33,6 +33,7 @@ import UserVouchers from "./pages/UserVouchers";
 import VNPayReturn from './pages/VNPayReturn';
 import ProductForm from "./pages/admin/ProductForm";
 import AdminChat from './pages/admin/AdminChat';
+import AdminPrizes from "./pages/admin/AdminPrizes";
 
 function App() {
   return (
@@ -76,6 +77,7 @@ function App() {
                   <Route path="products/edit/:id" element={<EditProduct />} />
                   <Route path="users" element={<Users />} />                  <Route path="revenue" element={<Revenue />} />
                   <Route path="categories" element={<Categories />} />
+                  <Route path="prizes" element={<AdminPrizes />} />
                 </Route>
               </Route>
             </Routes>

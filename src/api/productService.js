@@ -40,6 +40,16 @@ export const getAllSizes = async () => {
     }
 };
 
+// Fetch size by ID
+export const getSizeById = async (sizeId) => {
+    try {
+        const response = await api.get(`/sizes/${sizeId}`);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
 export const getRelatedProducts = async (categoryId, currentProductId) => {
     try {
         const response = await api.get(`/products/related/${categoryId}`);

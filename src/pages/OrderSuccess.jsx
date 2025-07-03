@@ -1,6 +1,7 @@
 import React, { Fragment, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { getProductById } from '../api/productService';
 
 const OrderSuccess = () => {
   const location = useLocation();
@@ -39,8 +40,10 @@ const OrderSuccess = () => {
 
       try {
         const response = await fetch(`http://localhost:8080/api/orders/payment/vnpay/return${location.search}`);
+        console.log("data",response);
         if (response.ok) {
           const data = await response.json();
+          
           setOrder(data.order);
 
           // Xử lý giảm voucher
@@ -66,8 +69,20 @@ const OrderSuccess = () => {
 
     // fallback nếu không phải từ VNPay hoặc PayPal
     const savedOrder = localStorage.getItem('lastOrder');
+    console.log("savedOrder",savedOrder);
     if (savedOrder) {
-      setOrder(JSON.parse(savedOrder));
+      let parsedOrder = JSON.parse(savedOrder);
+      // Nếu orderItems chưa có product, fetch product info cho từng item
+      if (parsedOrder.orderItems && parsedOrder.orderItems.length > 0 && !parsedOrder.orderItems[0].product) {
+        const itemsWithProduct = await Promise.all(
+          parsedOrder.orderItems.map(async (item) => {
+            const product = await getProductById(item.productId);
+            return { ...item, product };
+          })
+        );
+        parsedOrder.orderItems = itemsWithProduct;
+      }
+      setOrder(parsedOrder);
     }
   };
 

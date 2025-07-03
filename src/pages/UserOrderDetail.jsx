@@ -22,13 +22,13 @@ const UserOrderDetail = () => {
         `http://localhost:8080/api/orders/${id}`
       );
       setOrder(orderResponse.data);
-
+      
       // Fetch order items
       const itemsResponse = await axios.get(
         `http://localhost:8080/api/order-items/order/${id}`
       );
       setOrderItems(itemsResponse.data);
-
+      
       setLoading(false);
     } catch (err) {
       console.error("Error fetching order details:", err);
@@ -165,14 +165,14 @@ const UserOrderDetail = () => {
       await axios.put(`http://localhost:8080/api/orders/${id}/status`, {
         status: "Đã thanh toán",
       });
-
+      
       // Update payment status if it's COD
       if (order.paymentMethod === "COD") {
         await axios.put(`http://localhost:8080/api/orders/${id}/payment`, {
           paymentStatus: "paid",
         });
       }
-
+      
       setUpdateSuccess(true);
       // Refresh order details
       await fetchOrderDetails();
@@ -368,7 +368,7 @@ const UserOrderDetail = () => {
                 {error || "Không tìm thấy đơn hàng"}
               </h2>
               <div className="mt-6">
-                <button
+                <button 
                   onClick={() => navigate("/user/orders")}
                   className="px-6 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
                 >
@@ -398,7 +398,7 @@ const UserOrderDetail = () => {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-8">
-            <button
+            <button 
               onClick={() => navigate("/user/orders")}
               className="text-gray-600 hover:text-gray-800 flex items-center"
             >
@@ -479,7 +479,7 @@ const UserOrderDetail = () => {
                   {orderItems.map((item) => (
                     <div key={item.id} className="flex items-center">
                       <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                        <img
+                        <img 
                           src={
                             item.product?.imageUrls?.[0] ||
                             "https://placehold.co/200x200?text=No+Image"
@@ -622,7 +622,7 @@ const UserOrderDetail = () => {
             )}
 
             {order.status === "Chưa thanh toán" && (
-              <button
+              <button 
                 onClick={handleOrderReceived}
                 disabled={updating}
                 className={`px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors ${
@@ -662,4 +662,4 @@ const UserOrderDetail = () => {
   );
 };
 
-export default UserOrderDetail;
+export default UserOrderDetail; 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { getAllProducts, getAllSizes } from '../api/productService';
+import { getAllProducts, getAllSizes, getSizeById } from '../api/productService';
 import { FiFilter, FiX, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 
 const Products = () => {
@@ -67,7 +67,25 @@ const Products = () => {
           productsData = await getAllProducts();
         }
         
-        setProducts(productsData);
+        // Lấy name cho từng size của từng sản phẩm
+        const productsWithSizeNames = await Promise.all(
+          productsData.map(async (product) => {
+            if (product.productSizes && product.productSizes.length > 0) {
+              const productSizesWithName = await Promise.all(
+                product.productSizes.map(async (sizeInfo) => {
+                  const sizeDetail = await getSizeById(sizeInfo.id.sizeId);
+                  return {
+                    ...sizeInfo,
+                    name: sizeDetail.name,
+                  };
+                })
+              );
+              return { ...product, productSizes: productSizesWithName };
+            }
+            return product;
+          })
+        );
+        setProducts(productsWithSizeNames);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching products:', err);
@@ -97,7 +115,18 @@ const Products = () => {
   const handleCategorySelect = (category, id) => {
     setSelectedCategory(category);
     setSelectedCategoryId(id.toString());
+    setSelectedSizes([]); // reset size filter khi đổi danh mục
   };
+
+  // Map categoryId sang catesize
+  const getCateSizeByCategoryId = (catId) => {
+    const shoesCategoryIds = [3]; // hoặc thêm các id khác nếu có nhiều loại giày
+    if (shoesCategoryIds.includes(Number(catId))) return 'shoes';
+    if (!catId) return null; // Tất cả sản phẩm
+    return 'clothes';
+  };
+
+  const cateSizeFilter = getCateSizeByCategoryId(selectedCategoryId);
 
   // Filter products based on selected filters
   const filteredProducts = products.filter(product => {
@@ -225,25 +254,31 @@ const Products = () => {
             <div className="mb-6">
               <h3 className="font-medium mb-3 text-gray-700">Kích thước</h3>
               <div className="flex flex-wrap gap-2">
-                {sizes.map((size) => (
-                  <button
-                    key={size.id}
-                    onClick={() => {
-                      if (selectedSizes.includes(size.id)) {
-                        setSelectedSizes(selectedSizes.filter(id => id !== size.id));
-                      } else {
-                        setSelectedSizes([...selectedSizes, size.id]);
-                      }
-                    }}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      selectedSizes.includes(size.id)
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {size.name}
-                  </button>
-                ))}
+                {sizes.filter(size => !cateSizeFilter || size.catesize === cateSizeFilter).length === 0 ? (
+                  <span className="text-gray-400 italic">Không có kích thước phù hợp</span>
+                ) : (
+                  sizes
+                    .filter(size => !cateSizeFilter || size.catesize === cateSizeFilter)
+                    .map((size) => (
+                      <button
+                        key={size.id}
+                        onClick={() => {
+                          if (selectedSizes.includes(size.id)) {
+                            setSelectedSizes(selectedSizes.filter(id => id !== size.id));
+                          } else {
+                            setSelectedSizes([...selectedSizes, size.id]);
+                          }
+                        }}
+                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                          selectedSizes.includes(size.id)
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {size.name}
+                      </button>
+                    ))
+                )}
               </div>
             </div>
           </div>
@@ -339,10 +374,7 @@ const Products = () => {
                                 key={sizeInfo.id.sizeId}
                                 className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-full border border-gray-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-colors"
                               >
-                                {sizeInfo.id.sizeId === 1 ? 'S' :
-                                 sizeInfo.id.sizeId === 2 ? 'M' :
-                                 sizeInfo.id.sizeId === 3 ? 'L' :
-                                 sizeInfo.id.sizeId === 4 ? 'XL' : sizeInfo.id.sizeId}
+                                {sizeInfo.name}
                               </span>
                             ))}
                         </div>

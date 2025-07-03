@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getProductById, getRelatedProducts, validateDiscountCode } from '../api/productService';
+import { getProductById, getRelatedProducts, validateDiscountCode, getSizeById } from '../api/productService';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
@@ -29,6 +29,17 @@ const ProductDetail = () => {
     const fetchProduct = async () => {
       try {
         const data = await getProductById(id);
+        // Lấy thông tin name cho từng size
+        const productSizesWithName = await Promise.all(
+          data.productSizes.map(async (sizeInfo) => {
+            const sizeDetail = await getSizeById(sizeInfo.id.sizeId);
+            return {
+              ...sizeInfo,
+              name: sizeDetail.name, // Gắn name vào
+            };
+          })
+        );
+        data.productSizes = productSizesWithName;
         setProduct(data);
         // Fetch related products after getting the main product
         if (data.category?.id) {
@@ -58,7 +69,7 @@ const ProductDetail = () => {
   const handleQuantityChange = (value) => {
     // Find the selected size's stock
     const selectedSizeInfo = product.productSizes.find(
-      sizeInfo => getSizeLabel(sizeInfo.id.sizeId) === selectedSize
+      sizeInfo => sizeInfo.name === selectedSize
     );
 
     if (!selectedSizeInfo) {
@@ -145,7 +156,7 @@ const ProductDetail = () => {
 
     // Check stock again before adding to cart
     const selectedSizeInfo = product.productSizes.find(
-      sizeInfo => getSizeLabel(sizeInfo.id.sizeId) === selectedSize
+      sizeInfo => sizeInfo.name === selectedSize
     );
 
     if (quantity > selectedSizeInfo.stock) {
@@ -178,16 +189,6 @@ const ProductDetail = () => {
       console.error('Error adding to cart:', error);
       enqueueSnackbar('Không thể thêm vào giỏ hàng', { variant: 'error' });
     }
-  };
-
-  const getSizeLabel = (sizeId) => {
-    const sizeMap = {
-      1: 'S',
-      2: 'M',
-      3: 'X',
-      4: 'XL',
-    };
-    return sizeMap[sizeId] || sizeId;
   };
 
   const handleThumbnailClick = (index) => {
@@ -274,7 +275,7 @@ const ProductDetail = () => {
                 <h2 className="text-lg font-semibold mb-4">Kích thước</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {product.productSizes.map((sizeInfo) => {
-                    const sizeLabel = getSizeLabel(sizeInfo.id.sizeId);
+                    const sizeLabel = sizeInfo.name;
                     const isOutOfStock = sizeInfo.stock <= 0;
                     return (
                       <button

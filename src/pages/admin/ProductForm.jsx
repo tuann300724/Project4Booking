@@ -33,11 +33,17 @@ const ProductForm = () => {
   const [objectUrls, setObjectUrls] = useState([]);
   const [toBeRevoked, setToBeRevoked] = useState([]);
 
+  const [allSizes, setAllSizes] = useState([]);
+
   useEffect(() => {
     // Lấy categories từ API
     axios.get('http://localhost:8080/api/categories')
       .then(res => setCategories(res.data))
       .catch(() => setCategories([]));
+    // Lấy allSizes từ API
+    axios.get('http://localhost:8080/api/sizes')
+      .then(res => setAllSizes(res.data))
+      .catch(() => setAllSizes([]));
   }, []);
 
   useEffect(() => {
@@ -78,6 +84,17 @@ const ProductForm = () => {
       ...prev,
       [name]: value
     }));
+
+    if (name === 'category') {
+      const selectedCategory = categories.find(cat => cat.id == value);
+      if (selectedCategory) {
+        const filteredSizes = allSizes.filter(size => size.catesize === selectedCategory.name);
+        setFormData(prev => ({
+          ...prev,
+          sizes: filteredSizes.map(size => ({ size: size.name, quantity: 0 }))
+        }));
+      }
+    }
   };
 
   // Format currency value
@@ -163,7 +180,7 @@ const ProductForm = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      // 1. Tạo product
+      // 1. Tạo product trước để lấy productId
       const productForm = new FormData();
       productForm.append('name', formData.name);
       productForm.append('description', formData.description);
@@ -173,24 +190,30 @@ const ProductForm = () => {
       formData.images.forEach(imgObj => {
         if (imgObj.file) productForm.append('images', imgObj.file);
       });
-      // Gửi product
       const res = await axios.post('http://localhost:8080/api/products', productForm, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       const productId = res.data.id;
-      // 2. Gửi từng size
-      const sizeIdMap = { S: 1, M: 2, L: 3, XL: 4 };
+
+      // 2. Gửi từng size (lấy sizeId từ allSizes)
+      const selectedCategory = categories.find(cat => cat.id == formData.category);
+      const filteredSizes = allSizes.filter(size => size.catesize === selectedCategory.name);
       for (const size of formData.sizes) {
-        await axios.post('http://localhost:8080/api/product-sizes', {
-          productId,
-          sizeId: sizeIdMap[size.size],
-          stock: size.quantity
-        });
+        if (size.quantity > 0) {
+          const sizeObj = filteredSizes.find(s => s.name === size.size);
+          if (sizeObj) {
+            await axios.post('http://localhost:8080/api/product-sizes', {
+              productId,
+              sizeId: sizeObj.id,
+              stock: size.quantity
+            });
+          }
+        }
       }
       alert('Tạo sản phẩm thành công!');
       navigate('/admin/products');
     } catch (err) {
-      alert('Lỗi tạo sản phẩm!');
+      alert('Lỗi tạo sản phẩm hoặc size!');
     } finally {
       setLoading(false);
     }
@@ -277,6 +300,29 @@ const ProductForm = () => {
               ))}
             </select>
           </div>
+
+          {/* Size input ngay dưới danh mục */}
+          {formData.category && formData.sizes.length > 0 && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Số lượng theo size
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                {formData.sizes.map((size) => (
+                  <div key={size.size} className="flex items-center space-x-2">
+                    <span className="w-12 text-sm font-medium text-gray-700">{size.size}</span>
+                    <input
+                      type="number"
+                      value={size.quantity}
+                      onChange={(e) => handleSizeQuantityChange(size.size, e.target.value)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      min="0"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -417,26 +463,6 @@ const ProductForm = () => {
                 </Droppable>
               </DragDropContext>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Số lượng theo size
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              {formData.sizes.map((size) => (
-                <div key={size.size} className="flex items-center space-x-2">
-                  <span className="w-12 text-sm font-medium text-gray-700">{size.size}</span>
-                  <input
-                    type="number"
-                    value={size.quantity}
-                    onChange={(e) => handleSizeQuantityChange(size.size, e.target.value)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    min="0"
-                  />
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="flex items-center space-x-2">

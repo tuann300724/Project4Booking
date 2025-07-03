@@ -9,6 +9,16 @@ const Categories = () => {
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryName, setCategoryName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSizeModal, setShowSizeModal] = useState(false);
+  const [sizeInput, setSizeInput] = useState('');
+  const [sizeCategory, setSizeCategory] = useState(null);
+  const [isAddingSize, setIsAddingSize] = useState(false);
+  const [sizeError, setSizeError] = useState(null);
+  const [sizesOfCategory, setSizesOfCategory] = useState([]);
+  const [editingSizeId, setEditingSizeId] = useState(null);
+  const [editingSizeName, setEditingSizeName] = useState('');
+  const [isUpdatingSize, setIsUpdatingSize] = useState(false);
+  const [isDeletingSize, setIsDeletingSize] = useState(false);
 
   // Fetch categories
   useEffect(() => {
@@ -82,6 +92,97 @@ const Categories = () => {
     setCategoryName('');
   };
 
+  // Thêm size cho category
+  const fetchSizesOfCategory = async (categoryName) => {
+    try {
+      const res = await axios.get('http://localhost:8080/api/sizes');
+      setSizesOfCategory(res.data.filter(size => size.catesize === categoryName));
+    } catch (err) {
+      setSizesOfCategory([]);
+    }
+  };
+
+  const handleOpenSizeModal = (category) => {
+    setSizeCategory(category);
+    setSizeInput('');
+    setShowSizeModal(true);
+    setSizeError(null);
+    fetchSizesOfCategory(category.name);
+  };
+
+  const handleCloseSizeModal = () => {
+    setShowSizeModal(false);
+    setSizeCategory(null);
+    setSizeInput('');
+    setSizeError(null);
+  };
+
+  const handleAddSizes = async (e) => {
+    e.preventDefault();
+    if (!sizeInput.trim()) return;
+    const sizeNames = sizeInput.split('\n').map(s => s.trim()).filter(Boolean);
+    if (sizeNames.length === 0) return;
+    setIsAddingSize(true);
+    setSizeError(null);
+    try {
+      await Promise.all(sizeNames.map(name =>
+        axios.post('http://localhost:8080/api/sizes', {
+          name,
+          catesize: sizeCategory.name
+        })
+      ));
+      setSizeInput('');
+      fetchSizesOfCategory(sizeCategory.name);
+      alert('Thêm size thành công!');
+    } catch (err) {
+      setSizeError('Không thể thêm size. Vui lòng thử lại.');
+      console.error('Error adding size:', err);
+    } finally {
+      setIsAddingSize(false);
+    }
+  };
+
+  const handleEditSize = (size) => {
+    setEditingSizeId(size.id);
+    setEditingSizeName(size.name);
+  };
+
+  const handleCancelEditSize = () => {
+    setEditingSizeId(null);
+    setEditingSizeName('');
+  };
+
+  const handleUpdateSize = async (size) => {
+    if (!editingSizeName.trim()) return;
+    setIsUpdatingSize(true);
+    try {
+      await axios.put(`http://localhost:8080/api/sizes/${size.id}`, {
+        name: editingSizeName.trim(),
+        catesize: size.catesize
+      });
+      setEditingSizeId(null);
+      setEditingSizeName('');
+      fetchSizesOfCategory(sizeCategory.name);
+    } catch (err) {
+      alert('Không thể cập nhật size.');
+    } finally {
+      setIsUpdatingSize(false);
+    }
+  };
+
+  const handleDeleteSize = async (size) => {
+    if (!window.confirm('Bạn có chắc muốn xoá size này?')) return;
+    setIsDeletingSize(true);
+    try {
+      await axios.delete(`http://localhost:8080/api/sizes/${size.id}`);
+      fetchSizesOfCategory(sizeCategory.name);
+    } catch (err) {
+      alert('Không thể xoá size.');
+    } finally {
+      setIsDeletingSize(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -144,6 +245,15 @@ const Categories = () => {
                         Sửa
                       </button>
                       <button
+                        onClick={() => handleOpenSizeModal(category)}
+                        className="text-green-600 hover:text-green-900 mr-4 font-semibold transition-colors duration-200"
+                      >
+                        <svg className="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Thêm size
+                      </button>
+                      <button
                         onClick={() => handleDelete(category.id)}
                         className="text-red-600 hover:text-red-900 font-semibold transition-colors duration-200"
                       >
@@ -195,6 +305,92 @@ const Categories = () => {
                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-purple-300"
                   >
                     {isSubmitting ? 'Đang lưu...' : (editingCategory ? 'Cập nhật' : 'Thêm mới')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showSizeModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-2xl font-bold mb-4 text-green-700">
+                Thêm size cho danh mục: <span className="text-purple-700">{sizeCategory?.name}</span>
+              </h2>
+              <form onSubmit={handleAddSizes}>
+                <div className="mb-4">
+                  <label className="block text-gray-700 text-sm font-bold mb-2">
+                    Nhập tên size (mỗi dòng 1 size)
+                  </label>
+                  <textarea
+                    value={sizeInput}
+                    onChange={e => setSizeInput(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-green-500 min-h-[100px]"
+                    placeholder={"VD:\nS\nM\nL\nXL"}
+                    required
+                  />
+                </div>
+                {sizeError && <div className="mb-2 text-red-600 text-sm">{sizeError}</div>}
+                {sizesOfCategory.length > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-bold mb-2">Các size hiện có:</label>
+                    <ul className="divide-y divide-gray-200 bg-gray-50 rounded-lg border border-gray-200">
+                      {sizesOfCategory.map(size => (
+                        <li key={size.id} className="flex items-center px-3 py-2">
+                          {editingSizeId === size.id ? (
+                            <>
+                              <input
+                                value={editingSizeName}
+                                onChange={e => setEditingSizeName(e.target.value)}
+                                className="border px-2 py-1 rounded mr-2 w-24"
+                                disabled={isUpdatingSize}
+                              />
+                              <button
+                                onClick={() => handleUpdateSize(size)}
+                                className="text-green-600 hover:text-green-900 font-semibold mr-2"
+                                disabled={isUpdatingSize}
+                              >Lưu</button>
+                              <button
+                                onClick={handleCancelEditSize}
+                                className="text-gray-500 hover:text-gray-800 font-semibold"
+                                disabled={isUpdatingSize}
+                              >Huỷ</button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-24 inline-block font-medium text-gray-700">{size.name}</span>
+                              <button
+                                onClick={() => handleEditSize(size)}
+                                className="text-blue-600 hover:text-blue-900 font-semibold mr-2 ml-2"
+                                disabled={isUpdatingSize || isDeletingSize}
+                              >Sửa</button>
+                              <button
+                                onClick={() => handleDeleteSize(size)}
+                                className="text-red-600 hover:text-red-900 font-semibold"
+                                disabled={isUpdatingSize || isDeletingSize}
+                              >Xoá</button>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCloseSizeModal}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isAddingSize}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-300"
+                  >
+                    {isAddingSize ? 'Đang thêm...' : 'Thêm size'}
                   </button>
                 </div>
               </form>

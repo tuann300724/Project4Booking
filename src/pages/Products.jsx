@@ -49,53 +49,43 @@ const Products = () => {
 
   // Fetch products based on category
   useEffect(() => {
-    const fetchProducts = async () => {
-      setLoading(true);
-      try {
-        let productsData;
-        
-        if (selectedCategoryId) {
-          // Fetch products by category
-          const response = await fetch(`http://localhost:8080/api/products/category/${selectedCategoryId}`);
-          if (response.ok) {
-            productsData = await response.json();
-          } else {
-            throw new Error('Failed to fetch products by category');
-          }
-        } else {
-          // Fetch all products
-          productsData = await getAllProducts();
-        }
-        
-        // Lấy name cho từng size của từng sản phẩm
-        const productsWithSizeNames = await Promise.all(
-          productsData.map(async (product) => {
-            if (product.productSizes && product.productSizes.length > 0) {
-              const productSizesWithName = await Promise.all(
-                product.productSizes.map(async (sizeInfo) => {
-                  const sizeDetail = await getSizeById(sizeInfo.id.sizeId);
-                  return {
-                    ...sizeInfo,
-                    name: sizeDetail.name,
-                  };
-                })
-              );
-              return { ...product, productSizes: productSizesWithName };
-            }
-            return product;
-          })
-        );
-        setProducts(productsWithSizeNames);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching products:', err);
-        setError('Đã có lỗi xin vui lòng thử lại');
-        setLoading(false);
+    const buildFilterQuery = () => {
+      const params = [];
+      if (selectedCategory) params.push(`category=${encodeURIComponent(selectedCategory)}`);
+      if (priceRange[0] > 0) params.push(`minPrice=${priceRange[0]}`);
+      if (priceRange[1] < 1000000) params.push(`maxPrice=${priceRange[1]}`);
+      if (selectedSizes.length > 0) {
+        // Lấy tên size từ id
+        const selectedSizeNames = sizes
+          .filter(size => selectedSizes.includes(size.id))
+          .map(size => size.name);
+        selectedSizeNames.forEach(sizeName => {
+          params.push(`sizes=${encodeURIComponent(sizeName)}`);
+        });
       }
+      return params.length > 0 ? '?' + params.join('&') : '';
     };
 
-    fetchProducts();
-  }, [selectedCategoryId]);
+    const fetchFilteredProducts = async () => {
+      setLoading(true);
+      try {
+        const query = buildFilterQuery();
+        const response = await fetch(`http://localhost:8080/api/products/filter${query}`);
+        if (response.ok) {
+          const data = await response.json();
+          setProducts(data);
+          console.log('Products from API:', data);
+        } else {
+          setProducts([]);
+        }
+      } catch (err) {
+        setProducts([]);
+      }
+      setLoading(false);
+    };
+
+    fetchFilteredProducts();
+  }, [selectedCategory, priceRange, selectedSizes]);
 
   // Fetch sizes
   useEffect(() => {
@@ -138,16 +128,33 @@ const Products = () => {
   });
 
   // Sort products
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'price-asc':
-        return a.price - b.price;
-      case 'price-desc':
-        return b.price - a.price;
-      default:
-        return 0;
+  const sortedProducts = products; // Không filter lại!
+
+  // Group sizes by catesize
+  const groupedSizes = sizes.reduce((acc, size) => {
+    if (!acc[size.catesize]) acc[size.catesize] = [];
+    acc[size.catesize].push(size);
+    return acc;
+  }, {});
+
+  const handleSizeClick = (size) => {
+    // Nếu chưa chọn category hoặc category khác với catesize của size, thì set lại category
+    if (!selectedCategory || selectedCategory !== size.catesize) {
+      setSelectedCategory(size.catesize);
+      // Nếu bạn dùng selectedCategoryId, cần map từ name sang id:
+      const cat = categories.find(cat => cat.name === size.catesize);
+      if (cat) setSelectedCategoryId(cat.id.toString());
+      // Reset lại selectedSizes chỉ còn size vừa chọn
+      setSelectedSizes([size.id]);
+    } else {
+      // Nếu đã đúng loại, toggle chọn size như cũ
+      if (selectedSizes.includes(size.id)) {
+        setSelectedSizes(selectedSizes.filter(id => id !== size.id));
+      } else {
+        setSelectedSizes([...selectedSizes, size.id]);
+      }
     }
-  });
+  };
 
   if (loading) {
     return (
@@ -253,33 +260,32 @@ const Products = () => {
             {/* Size Filter */}
             <div className="mb-6">
               <h3 className="font-medium mb-3 text-gray-700">Kích thước</h3>
-              <div className="flex flex-wrap gap-2">
-                {sizes.filter(size => !cateSizeFilter || size.catesize === cateSizeFilter).length === 0 ? (
-                  <span className="text-gray-400 italic">Không có kích thước phù hợp</span>
-                ) : (
-                  sizes
-                    .filter(size => !cateSizeFilter || size.catesize === cateSizeFilter)
-                    .map((size) => (
-                      <button
-                        key={size.id}
-                        onClick={() => {
-                          if (selectedSizes.includes(size.id)) {
-                            setSelectedSizes(selectedSizes.filter(id => id !== size.id));
-                          } else {
-                            setSelectedSizes([...selectedSizes, size.id]);
-                          }
-                        }}
-                        className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                          selectedSizes.includes(size.id)
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {size.name}
-                      </button>
-                    ))
-                )}
-              </div>
+              {Object.keys(groupedSizes).length === 0 ? (
+                <span className="text-gray-400 italic">Không có kích thước phù hợp</span>
+              ) : (
+                Object.entries(groupedSizes)
+                  .filter(([catesize]) => !selectedCategory || catesize === selectedCategory)
+                  .map(([catesize, sizeList]) => (
+                    <div key={catesize} className="mb-2">
+                      <div className="font-semibold text-purple-700 mb-1">{catesize}</div>
+                      <div className="flex flex-wrap gap-2">
+                        {sizeList.map((size) => (
+                          <button
+                            key={size.id}
+                            onClick={() => handleSizeClick(size)}
+                            className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                              selectedSizes.includes(size.id)
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {size.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+              )}
             </div>
           </div>
 
@@ -366,18 +372,7 @@ const Products = () => {
                             <span>Mới</span>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {product.productSizes && product.productSizes
-                            .filter(sizeInfo => sizeInfo.stock > 0)
-                            .map(sizeInfo => (
-                              <span
-                                key={sizeInfo.id.sizeId}
-                                className="px-2.5 py-1 text-xs bg-gray-100 text-gray-700 rounded-full border border-gray-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-colors"
-                              >
-                                {sizeInfo.name}
-                              </span>
-                            ))}
-                        </div>
+                        
                       </div>
                     </div>
                   </div>

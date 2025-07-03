@@ -25,6 +25,7 @@ const EditProduct = () => {
   const [stockChanges, setStockChanges] = useState({});
   const [showStockNotification, setShowStockNotification] = useState(false);
   const [initialStockData, setInitialStockData] = useState({});
+  const [existingProductSizeIds, setExistingProductSizeIds] = useState([]);
 
   // Debug: log images array whenever it changes
   useEffect(() => {
@@ -41,15 +42,21 @@ const EditProduct = () => {
         // Fetch categories
         const categoriesResponse = await axios.get('http://localhost:8080/api/categories');
         setCategories(categoriesResponse.data);
-        // Fetch sizes
+        // Fetch all sizes (chuẩn)
         const sizesResponse = await axios.get('http://localhost:8080/api/sizes');
         const allSizes = sizesResponse.data;
-        setSizes(allSizes);
+        // Lọc size chuẩn theo loại sản phẩm
+        const filteredSizes = allSizes.filter(size => size.catesize === product.category.name);
+        // Fetch size đã có của product
+        const sizesOfProductRes = await axios.get(`http://localhost:8080/api/sizes/product/${id}`);
+        const sizesOfProduct = sizesOfProductRes.data; // [{productId, sizeId, sizeName, catesize}]
+        setExistingProductSizeIds(sizesOfProduct.map(s => s.sizeId || s.id));
+        setSizes(filteredSizes);
         // Fetch productSizes (stock theo size) từ API riêng
         const productSizesRes = await axios.get(`http://localhost:8080/api/product-sizes/product/${id}`);
         const productSizesFromApi = productSizesRes.data; // [{sizeId, stock}]
-        // Map đủ các size, nếu thiếu thì stock = 0
-        const productSizes = allSizes.map(size => {
+        // Map đủ các size chuẩn, nếu thiếu thì stock = 0
+        const productSizes = filteredSizes.map(size => {
           const found = productSizesFromApi.find(ps => ps.sizeId === size.id);
           return found ? { sizeId: size.id, stock: found.stock } : { sizeId: size.id, stock: 0 };
         });
@@ -149,7 +156,6 @@ const EditProduct = () => {
     });
   };
 
-  // Kéo thả sắp xếp hình ảnh
   const handleDragEnd = (result) => {
     if (!result.destination) return;
     const reordered = Array.from(images);
@@ -158,7 +164,7 @@ const EditProduct = () => {
     setImages(reordered);
   };
 
-  // Xử lý submit: upload hình mới, gửi thông tin sản phẩm, cập nhật thứ tự hình ảnh
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -229,17 +235,33 @@ const EditProduct = () => {
         const newStock = formData.productSizes.find(ps => ps.sizeId === sizeId)?.stock || 0;
         const oldStock = stockData[sizeId] || 0;
         const adjustment = newStock - oldStock;
-
-        if (adjustment !== 0) {
+        if (existingProductSizeIds.includes(sizeId)) {
+          // Đã có, update như cũ
+          if (adjustment !== 0) {
+            try {
+              await axios.put(
+                `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock?adjustment=${adjustment}`,
+                {},
+                { headers: { 'Content-Type': 'application/json' } }
+              );
+            } catch (sizeError) {
+              console.error(`Error updating size ${sizeId}:`, sizeError);
+            }
+          }
+        } else if (newStock > 0) {
+          // Size thuộc loại sản phẩm nhưng chưa có trong product, tạo mới
           try {
-            await axios.put(
-              `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock?adjustment=${adjustment}`,
-              {},
+            await axios.post(
+              'http://localhost:8080/api/product-sizes',
+              {
+                productId: Number(id),
+                sizeId: sizeId,
+                stock: newStock
+              },
               { headers: { 'Content-Type': 'application/json' } }
             );
-            console.log(`Updated stock for size ${sizeId} with adjustment: ${adjustment}`);
-          } catch (sizeError) {
-            console.error(`Error updating size ${sizeId}:`, sizeError);
+          } catch (err) {
+            console.error(`Error creating product-size for size ${sizeId}:`, err);
           }
         }
       }
@@ -275,44 +297,56 @@ const EditProduct = () => {
       // Chỉ cập nhật những size có thay đổi
       const updatedSizes = Object.entries(stockChanges)
         .filter(([_, change]) => change !== 0)
-        .map(([sizeId]) => sizeId);
+        .map(([sizeId]) => Number(sizeId));
 
       if (updatedSizes.length === 0) {
         alert('Không có thay đổi nào để cập nhật!');
         return;
       }
 
-      // Cập nhật từng size có thay đổi
       for (const sizeId of updatedSizes) {
         const change = stockChanges[sizeId];
-        try {
-          const response = await axios({
-            method: 'put',
-            url: `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock`,
-            params: {
-              adjustment: change
-            },
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            timeout: 10000
-          });
-
-          if (response.status === 200) {
-            console.log(`Updated stock for size ${sizeId} with adjustment: ${change}`);
+        if (existingProductSizeIds.includes(sizeId)) {
+          // Đã có, update stock
+          try {
+            await axios.put(
+              `http://localhost:8080/api/product-sizes/product/${id}/size/${sizeId}/adjust-stock`,
+              {},
+              {
+                params: { adjustment: change },
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                timeout: 10000
+              }
+            );
+          } catch (sizeError) {
+            console.error(`Error updating size ${sizeId}:`, sizeError);
+            throw new Error(`Không thể cập nhật số lượng cho size ${sizeId}: ${sizeError.message}`);
           }
-        } catch (sizeError) {
-          console.error(`Error updating size ${sizeId}:`, sizeError);
-          throw new Error(`Không thể cập nhật số lượng cho size ${sizeId}: ${sizeError.message}`);
+        } else if (change > 0) {
+          // Chưa có, tạo mới product-size
+          try {
+            await axios.post(
+              'http://localhost:8080/api/product-sizes',
+              {
+                productId: Number(id),
+                sizeId: sizeId,
+                stock: change
+              },
+              { headers: { 'Content-Type': 'application/json' } }
+            );
+          } catch (err) {
+            console.error(`Error creating product-size for size ${sizeId}:`, err);
+            throw new Error(`Không thể tạo mới product-size cho size ${sizeId}: ${err.message}`);
+          }
         }
+        // Nếu là size mới mà change < 0 thì bỏ qua, không cho tạo mới với số âm
       }
 
-      // Hiển thị thông báo
       setShowStockNotification(true);
       setTimeout(() => setShowStockNotification(false), 3000);
-
-      // Reset stock changes
       setStockChanges({});
     } catch (error) {
       console.error('Error updating stock:', error);
@@ -403,20 +437,9 @@ const EditProduct = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
-                <select
-                  name="categoryId"
-                  value={formData.categoryId}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  required
-                >
-                  <option value="">Chọn danh mục</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700">
+                  {categories.find(cat => cat.id == formData.categoryId)?.name || 'Không xác định'}
+                </div>
               </div>
 
               {/* Image Upload Section - kéo thả */}

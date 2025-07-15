@@ -47,14 +47,32 @@ const EditProduct = () => {
         const allSizes = sizesResponse.data;
         // Lọc size chuẩn theo loại sản phẩm
         const filteredSizes = allSizes.filter(size => size.catesize === product.category.name);
-        // Fetch size đã có của product
-        const sizesOfProductRes = await axios.get(`http://localhost:8080/api/sizes/product/${id}`);
-        const sizesOfProduct = sizesOfProductRes.data; // [{productId, sizeId, sizeName, catesize}]
-        setExistingProductSizeIds(sizesOfProduct.map(s => s.sizeId || s.id));
         setSizes(filteredSizes);
-        // Fetch productSizes (stock theo size) từ API riêng
-        const productSizesRes = await axios.get(`http://localhost:8080/api/product-sizes/product/${id}`);
-        const productSizesFromApi = productSizesRes.data; // [{sizeId, stock}]
+        // Fetch size đã có của product (nếu có)
+        let sizesOfProduct = [];
+        try {
+          const sizesOfProductRes = await axios.get(`http://localhost:8080/api/sizes/product/${id}`);
+          sizesOfProduct = sizesOfProductRes.data;
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            sizesOfProduct = [];
+          } else {
+            throw err;
+          }
+        }
+        setExistingProductSizeIds(sizesOfProduct.map(s => s.sizeId || s.id));
+        // Fetch productSizes (stock theo size) từ API riêng (nếu có)
+        let productSizesFromApi = [];
+        try {
+          const productSizesRes = await axios.get(`http://localhost:8080/api/product-sizes/product/${id}`);
+          productSizesFromApi = productSizesRes.data;
+        } catch (err) {
+          if (err.response && err.response.status === 404) {
+            productSizesFromApi = [];
+          } else {
+            throw err;
+          }
+        }
         // Map đủ các size chuẩn, nếu thiếu thì stock = 0
         const productSizes = filteredSizes.map(size => {
           const found = productSizesFromApi.find(ps => ps.sizeId === size.id);
@@ -63,17 +81,15 @@ const EditProduct = () => {
         // Set images - productImages is already an array of image objects
         if (product.productImages && Array.isArray(product.productImages)) {
           const productImages = product.productImages.map(img => {
-            console.log("Loading existing image:", img);
             return {
-              id: img.id,                            // Numeric ID from database
+              id: img.id,
               url: `http://localhost:8080${img.imageUrl}`,
               imageUrl: img.imageUrl,
-              file: null,                            // No file for existing images
-              isExisting: true                       // Flag to mark this as existing
+              file: null,
+              isExisting: true
             };
           });
           setImages(productImages);
-          console.log(`Loaded ${productImages.length} existing images`);
         }
         // Set form data
         setFormData({

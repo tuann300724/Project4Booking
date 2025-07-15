@@ -69,15 +69,15 @@ const UserOrders = () => {
 
   const getStatusInfo = (status) => {
     switch (status) {
-      case 'pending':
+      case 'Đang xử lý':
         return { text: 'Chờ xác nhận', color: 'bg-yellow-100 text-yellow-800' };
-      case 'confirmed':
+      case 'Xác nhận':
         return { text: 'Đã xác nhận', color: 'bg-blue-100 text-blue-800' };
       case 'in_delivery':
         return { text: 'Đang giao hàng', color: 'bg-purple-100 text-purple-800' };
       case 'completed':
         return { text: 'Hoàn thành', color: 'bg-green-100 text-green-800' };
-      case 'cancelled':
+      case 'Đã hủy':
         return { text: 'Đã hủy', color: 'bg-red-100 text-red-800' };
       default:
         return { text: status, color: 'bg-gray-100 text-gray-800' };

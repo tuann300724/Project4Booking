@@ -76,13 +76,13 @@ const UserOrderDetail = () => {
 
   const getStatusInfo = (status) => {
     switch (status) {
-      case "pending":
+      case "Đang xử lý":
         return {
           text: "Chờ xác nhận",
           color: "bg-yellow-100 text-yellow-800",
           icon: "clock",
         };
-      case "confirmed":
+      case "Xác nhận":
         return {
           text: "Đã xác nhận",
           color: "bg-blue-100 text-blue-800",
@@ -100,7 +100,7 @@ const UserOrderDetail = () => {
           color: "bg-green-100 text-green-800",
           icon: "check-circle",
         };
-      case "cancelled":
+      case "Đã hủy":
         return {
           text: "Đã hủy",
           color: "bg-red-100 text-red-800",
@@ -224,6 +224,20 @@ const UserOrderDetail = () => {
       window.location.href = paymentUrl;
     } catch (error) {
       alert(error.response?.data || error.message || 'Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại sau!');
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn huỷ đơn hàng này?")) return;
+    setUpdating(true);
+    try {
+      await axios.put(`http://localhost:8080/api/orders/${id}/cancel`);
+      setUpdateSuccess(true);
+      await fetchOrderDetails();
+    } catch (err) {
+      setError("Không thể huỷ đơn hàng. Vui lòng thử lại sau.");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -619,6 +633,24 @@ const UserOrderDetail = () => {
                   {timeLeft ? 'Thanh toán ngay' : 'Hết thời gian thanh toán'}
                 </button>
               </div>
+            )}
+
+            {/* Nút huỷ đơn hàng cho trạng thái 'Đang xử lý' (Chờ xác nhận) */}
+            {order.status === "Đang xử lý" && (
+              <button 
+                onClick={handleCancelOrder}
+                disabled={updating}
+                className={`px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors ${updating ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {updating ? (
+                  <>
+                    <span className="inline-block mr-2 align-middle h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
+                    Đang huỷ...
+                  </>
+                ) : (
+                  "Huỷ đơn hàng"
+                )}
+              </button>
             )}
 
             {order.status === "Chưa thanh toán" && (

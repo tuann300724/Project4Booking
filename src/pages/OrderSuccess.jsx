@@ -222,10 +222,21 @@ const OrderSuccess = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Đặt hàng thành công!</h1>
-              <p className="text-gray-600">
-                Cảm ơn bạn đã đặt hàng. Chúng tôi sẽ xử lý đơn hàng của bạn ngay lập tức.
-              </p>
+              {order.paymentStatus === 'Chờ thanh toán' ? (
+                <>
+                  <h1 className="text-3xl font-bold text-yellow-600 mb-2">Đang đợi thanh toán</h1>
+                  <p className="text-gray-600">
+                    Đơn hàng của bạn đã được tạo, vui lòng hoàn tất thanh toán để xác nhận đơn hàng.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-bold text-gray-800 mb-2">Đặt hàng thành công!</h1>
+                  <p className="text-gray-600">
+                    Cảm ơn bạn đã đặt hàng. Chúng tôi sẽ xử lý đơn hàng của bạn ngay lập tức.
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="border-t border-b py-4 mb-6">
